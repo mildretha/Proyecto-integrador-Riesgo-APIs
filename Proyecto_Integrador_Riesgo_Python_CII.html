@@ -1,0 +1,854 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proyecto Integrador - Teoria del Riesgo - USTA</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: { sans: ['Montserrat','Helvetica Neue','Arial','sans-serif'] },
+                    colors: { primary:'#3D008D', secondary:'#ED1E79', navy:'#001A4D', gold:'#FDB913', bg:'#F8FAFC' }
+                }
+            }
+        }
+    </script>
+    <style>
+        body{font-family:'Montserrat',sans-serif;background:#F8FAFC;color:#1E293B;scroll-behavior:smooth}
+        .usta-gradient{background:linear-gradient(140deg,#3D008D 0%,#ED1E79 100%)}
+        .usta-header{background:linear-gradient(180deg,#001A4D 0%,#002868 100%)}
+        .usta-card{background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,.08);transition:all .3s ease}
+        .usta-card:hover{box-shadow:0 12px 35px rgba(0,0,0,.12);transform:translateY(-2px)}
+        .tip-box{background:linear-gradient(135deg,rgba(61,0,141,.08) 0%,rgba(237,30,121,.08) 100%);border:1px solid rgba(61,0,141,.2);border-radius:12px}
+        .new-tag{background:linear-gradient(135deg,rgba(34,197,94,.1) 0%,rgba(34,197,94,.05) 100%);border:1px solid rgba(34,197,94,.3);border-radius:12px}
+        ::-webkit-scrollbar{width:8px}::-webkit-scrollbar-track{background:#f1f5f9}
+        ::-webkit-scrollbar-thumb{background:linear-gradient(180deg,#3D008D,#ED1E79);border-radius:4px}
+        .fade-in{animation:fadeIn .4s ease-out forwards}
+        @keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+        button:focus-visible{outline:2px solid #ED1E79;outline-offset:2px}
+        .rtable th{background:linear-gradient(140deg,#3D008D 0%,#ED1E79 100%);color:#fff;padding:10px 14px;font-size:13px;text-align:left}
+        .rtable td{padding:10px 14px;font-size:13px;border-bottom:1px solid #e2e8f0}
+        .rtable tr:nth-child(even) td{background:#f8fafc}
+        .rtable{border-collapse:collapse;width:100%;border-radius:12px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.06)}
+    </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState} = React;
+
+/* ---- Icons ---- */
+const I = {
+    Book:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>),
+    Target:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>),
+    Globe:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>),
+    Chart:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>),
+    Trend:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>),
+    Bar:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/></svg>),
+    Shield:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>),
+    Zap:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>),
+    Award:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/></svg>),
+    Cal:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>),
+    Gear:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>),
+    Left:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="15 18 9 12 15 6"/></svg>),
+    Right:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 18 15 12 9 6"/></svg>),
+    Clip:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><line x1="9" y1="12" x2="15" y2="12"/><line x1="9" y1="16" x2="15" y2="16"/></svg>),
+    Code:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>),
+    Box:({s=22})=>(<svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>),
+};
+
+const iconMap = {Book:I.Book,Target:I.Target,Globe:I.Globe,Chart:I.Chart,Trend:I.Trend,Bar:I.Bar,Shield:I.Shield,Zap:I.Zap,Award:I.Award,Cal:I.Cal,Gear:I.Gear,Clip:I.Clip,Code:I.Code,Box:I.Box};
+
+const SH = ({title,iconKey}) => {const Ic=iconMap[iconKey]; return (
+    <div className="flex items-center gap-3 mb-5 border-b border-gray-200 pb-3">
+        <div className="usta-gradient p-2.5 rounded-xl shadow-md text-white">{Ic && <Ic s={24}/>}</div>
+        <h2 className="text-2xl font-bold text-gray-900">{title}</h2>
+    </div>
+);};
+
+/* ---- Grader Tool Component ---- */
+const CRITERIA = [
+    {name:'An\u00E1lisis t\u00E9cnico e indicadores',weight:0.10},
+    {name:'Rendimientos y propiedades emp\u00EDricas',weight:0.06},
+    {name:'Modelos ARCH/GARCH',weight:0.10},
+    {name:'CAPM y riesgo sistem\u00E1tico',weight:0.06},
+    {name:'Valor en Riesgo (VaR) y CVaR',weight:0.10},
+    {name:'Optimizaci\u00F3n de portafolio (Markowitz)',weight:0.10},
+    {name:'\u2605 Se\u00F1ales y alertas (M\u00F3d. 7)',weight:0.07},
+    {name:'\u2605 Contexto macro y benchmark (M\u00F3d. 8)',weight:0.06},
+    {name:'\u2605\u2605 Backend FastAPI y Pydantic',weight:0.12},
+    {name:'Calidad del tablero (frontend)',weight:0.07},
+    {name:'Buenas pr\u00E1cticas (Git, venv, docs)',weight:0.06},
+    {name:'Sustentaci\u00F3n oral',weight:0.10},
+];
+
+const GraderTool = () => {
+    const [groupName, setGroupName] = useState('');
+    const [scores, setScores] = useState(CRITERIA.map(()=>0));
+    const [bonus, setBonus] = useState(0);
+    const [obs, setObs] = useState('');
+    const [history, setHistory] = useState([]);
+    const [showExport, setShowExport] = useState(false);
+
+    const setScore = (i,v) => { const ns=[...scores]; ns[i]=parseFloat(v); setScores(ns); };
+    const weighted = scores.map((s,i)=>s*CRITERIA[i].weight);
+    const total = Math.min(5.0, weighted.reduce((a,b)=>a+b,0) + bonus);
+    const totalNoBonus = weighted.reduce((a,b)=>a+b,0);
+
+    const colorForScore = (s) => {
+        if(s>=4.5) return '#16a34a';
+        if(s>=4.0) return '#65a30d';
+        if(s>=3.5) return '#ca8a04';
+        if(s>=3.0) return '#ea580c';
+        return '#dc2626';
+    };
+
+    const labelForScore = (s) => {
+        if(s>=4.5) return 'Excelente';
+        if(s>=4.0) return 'Muy bueno';
+        if(s>=3.5) return 'Bueno';
+        if(s>=3.0) return 'Aceptable';
+        if(s>0) return 'Insuficiente';
+        return '';
+    };
+
+    const saveGroup = () => {
+        if(!groupName.trim()){alert('Ingresa el nombre del grupo.');return;}
+        const entry = {
+            name: groupName.trim(),
+            scores: [...scores],
+            bonus,
+            obs,
+            total: Math.round(total*100)/100,
+            totalNoBonus: Math.round(totalNoBonus*100)/100,
+            date: new Date().toLocaleString('es-CO')
+        };
+        setHistory(h=>[...h, entry]);
+        setGroupName(''); setScores(CRITERIA.map(()=>0)); setBonus(0); setObs('');
+    };
+
+    const removeGroup = (i) => { setHistory(h=>h.filter((_,j)=>j!==i)); };
+
+    const exportCSV = () => {
+        const header = ['Grupo','Fecha',...CRITERIA.map(c=>c.name),'Bonificaci\u00F3n','Nota sin bonif.','Nota final','Observaciones'];
+        const rows = history.map(g=>[
+            g.name, g.date,
+            ...g.scores.map(s=>s.toFixed(1)),
+            g.bonus.toFixed(1), g.totalNoBonus.toFixed(2), g.total.toFixed(2),
+            '"'+(g.obs||'').replace(/"/g,"'")+'"'
+        ]);
+        const csv = [header.join(';'), ...rows.map(r=>r.join(';'))].join('\n');
+        const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href=url; a.download='calificaciones_proyecto_riesgo.csv'; a.click();
+        URL.revokeObjectURL(url);
+    };
+
+    const opts = [];
+    for(let v=0; v<=5.0; v=Math.round((v+0.1)*10)/10) opts.push(v);
+
+    return (<div>
+        <div className="usta-card p-6 mb-6">
+            <h3 className="font-bold text-lg text-primary mb-1"><i className="fas fa-calculator mr-2"></i>Calificador autom&#225;tico</h3>
+            <p className="text-xs text-gray-500 mb-4">Selecciona la nota de cada criterio y el sistema calcula la nota ponderada en tiempo real.</p>
+
+            <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Nombre del grupo</label>
+                <input type="text" value={groupName} onChange={e=>setGroupName(e.target.value)}
+                    className="w-full text-sm p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-secondary focus:border-secondary outline-none"
+                    placeholder="Ej: Grupo 1 &#8212; P&#233;rez y G&#243;mez"/>
+            </div>
+
+            <div className="space-y-3 mb-6">
+                {CRITERIA.map((c,i)=>(
+                    <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                        <div className="flex-1 min-w-0">
+                            <div className="text-xs font-semibold text-gray-700 leading-tight">{c.name}</div>
+                            <div className="text-[10px] text-gray-400 mt-0.5">Peso: {(c.weight*100).toFixed(0)}% {scores[i]>0 && <span className="ml-1" style={{color:colorForScore(scores[i])}}>&#8226; {labelForScore(scores[i])}</span>}</div>
+                        </div>
+                        <select value={scores[i]} onChange={e=>setScore(i,e.target.value)}
+                            className="w-20 text-sm p-1.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-secondary focus:border-secondary outline-none bg-white text-center font-mono font-bold"
+                            style={{color: scores[i]>0 ? colorForScore(scores[i]) : '#9ca3af'}}>
+                            {opts.map(v=>(<option key={v} value={v}>{v.toFixed(1)}</option>))}
+                        </select>
+                        <div className="w-16 text-right">
+                            <span className="text-xs font-mono text-gray-400">{weighted[i]>0 ? weighted[i].toFixed(2) : '&#8212;'}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 border border-amber-200 mb-4">
+                <div className="flex-1">
+                    <div className="text-xs font-semibold text-amber-800">Bonificaci&#243;n</div>
+                    <div className="text-[10px] text-amber-600">API REST, Kupiec, despliegue nube, etc. (m&#225;x +0.5)</div>
+                </div>
+                <select value={bonus} onChange={e=>setBonus(parseFloat(e.target.value))}
+                    className="w-20 text-sm p-1.5 rounded-lg border border-amber-300 focus:ring-2 focus:ring-amber-400 outline-none bg-white text-center font-mono font-bold text-amber-700">
+                    {[0,0.1,0.2,0.3,0.4,0.5].map(v=>(<option key={v} value={v}>+{v.toFixed(1)}</option>))}
+                </select>
+            </div>
+
+            <div className="mb-4">
+                <label className="block text-xs font-bold text-gray-500 uppercase mb-1">Observaciones (opcional)</label>
+                <textarea value={obs} onChange={e=>setObs(e.target.value)} rows={2}
+                    className="w-full text-sm p-2.5 rounded-lg border border-gray-300 focus:ring-2 focus:ring-secondary focus:border-secondary outline-none resize-none"
+                    placeholder="Comentarios sobre el grupo..."/>
+            </div>
+
+            <div className="usta-card p-5 mb-4" style={{background:'linear-gradient(135deg,rgba(61,0,141,0.04) 0%,rgba(237,30,121,0.04) 100%)'}}>
+                <div className="flex justify-between items-center mb-3">
+                    <span className="text-sm font-bold text-gray-700">Nota sin bonificaci&#243;n</span>
+                    <span className="text-lg font-mono font-bold" style={{color:colorForScore(totalNoBonus)}}>{totalNoBonus.toFixed(2)}</span>
+                </div>
+                {bonus > 0 && <div className="flex justify-between items-center mb-3 text-sm">
+                    <span className="text-gray-500">+ Bonificaci&#243;n</span>
+                    <span className="font-mono text-amber-600">+{bonus.toFixed(1)}</span>
+                </div>}
+                <div className="border-t border-gray-200 pt-3 flex justify-between items-center">
+                    <span className="text-lg font-bold text-gray-900">NOTA FINAL</span>
+                    <span className="text-3xl font-mono font-bold" style={{color:colorForScore(total)}}>{total.toFixed(2)}</span>
+                </div>
+                <div className="mt-2 w-full bg-gray-200 rounded-full h-3 overflow-hidden">
+                    <div className="h-full rounded-full transition-all duration-500" style={{width:(total/5*100)+'%', background:colorForScore(total)}}></div>
+                </div>
+                <div className="text-center mt-1 text-xs font-bold" style={{color:colorForScore(total)}}>{labelForScore(total)}</div>
+            </div>
+
+            <button onClick={saveGroup}
+                className="w-full py-3 rounded-xl text-white font-semibold text-sm transition-all hover:scale-[1.02] active:scale-[0.98]"
+                style={{background:'linear-gradient(140deg,#3D008D 0%,#ED1E79 100%)'}}>
+                <i className="fas fa-save mr-2"></i>Guardar calificaci&#243;n del grupo
+            </button>
+        </div>
+
+        {history.length > 0 && (
+            <div className="usta-card p-6">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-lg text-primary"><i className="fas fa-list-ol mr-2"></i>Grupos calificados ({history.length})</h3>
+                    <button onClick={exportCSV}
+                        className="px-4 py-2 rounded-lg text-white text-xs font-semibold transition-all hover:scale-105"
+                        style={{background:'linear-gradient(140deg,#3D008D 0%,#ED1E79 100%)'}}>
+                        <i className="fas fa-file-csv mr-1"></i>Exportar CSV
+                    </button>
+                </div>
+                <div className="space-y-2">
+                    {history.map((g,i)=>(
+                        <div key={i} className="flex items-center gap-3 p-3 rounded-lg bg-gray-50 border border-gray-100">
+                            <div className="flex-1 min-w-0">
+                                <div className="text-sm font-bold text-gray-800 truncate">{g.name}</div>
+                                <div className="text-[10px] text-gray-400">{g.date}{g.obs && <span className="ml-2 italic">&#8212; {g.obs}</span>}</div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-xl font-mono font-bold" style={{color:colorForScore(g.total)}}>{g.total.toFixed(2)}</div>
+                                <div className="text-[10px] font-bold" style={{color:colorForScore(g.total)}}>{labelForScore(g.total)}</div>
+                            </div>
+                            <button onClick={()=>removeGroup(i)} className="p-1.5 text-gray-300 hover:text-red-500 transition-colors" title="Eliminar">
+                                <i className="fas fa-trash-alt text-xs"></i>
+                            </button>
+                        </div>
+                    ))}
+                </div>
+                {history.length >= 2 && (
+                    <div className="mt-4 p-3 rounded-lg bg-gray-50 border border-gray-200 text-center">
+                        <span className="text-xs text-gray-500">Promedio del curso: </span>
+                        <span className="text-sm font-mono font-bold text-primary">{(history.reduce((a,g)=>a+g.total,0)/history.length).toFixed(2)}</span>
+                        <span className="text-xs text-gray-400 ml-3">M&#237;n: {Math.min(...history.map(g=>g.total)).toFixed(2)} | M&#225;x: {Math.max(...history.map(g=>g.total)).toFixed(2)}</span>
+                    </div>
+                )}
+            </div>
+        )}
+    </div>);
+};
+
+/* ---- Sections ---- */
+const sections = [
+{id:'ctx',title:'Contexto y justificaci\u00F3n',icon:'Book',body:()=>(
+<div>
+<p className="mb-4">La gesti&#243;n del riesgo financiero es una competencia central para cualquier profesional de la estad&#237;stica. Este proyecto integrador busca que los estudiantes demuestren su comprensi&#243;n de los conceptos, modelos y herramientas cubiertos en el curso de <strong>Teor&#237;a del Riesgo</strong>.</p>
+<p className="mb-4">Cada equipo actuar&#225; como un <strong>equipo de anal&#237;tica de riesgo</strong> encargado de construir un tablero interactivo que permita a un inversionista explorar, comprender y tomar decisiones informadas sobre un portafolio de activos financieros.</p>
+<div className="new-tag p-4 text-sm mt-4"><strong className="text-green-700"><i className="fas fa-star mr-1"></i> Integraci&#243;n con APIs:</strong> El tablero deber&#225; conectarse a servicios financieros externos para obtener datos actualizados, enriqueciendo el an&#225;lisis con informaci&#243;n macroecon&#243;mica y generando se&#241;ales automatizadas.</div>
+<div className="usta-card p-5 mt-6">
+<h4 className="font-bold text-lg text-primary mb-3"><i className="fas fa-info-circle mr-2"></i>Informaci&#243;n General</h4>
+<div className="grid grid-cols-2 gap-4 text-sm">
+<div><strong>Profesor:</strong> Javier Mauricio Sierra</div>
+<div><strong>Equipos:</strong> M&#225;ximo 2 estudiantes</div>
+<div><strong>Plazo:</strong> 15 d&#237;as calendario</div>
+<div><strong>Herramientas:</strong> R, Python, APIs, BI</div>
+</div></div></div>
+)},
+
+{id:'obj',title:'Objetivos',icon:'Target',body:()=>(
+<div>
+<h3 className="font-bold text-lg text-primary mb-3">Objetivo General</h3>
+<p className="mb-6 text-sm">Dise&#241;ar y desarrollar un <strong>tablero interactivo conectado a APIs financieras</strong> que integre el an&#225;lisis de riesgo financiero de un portafolio compuesto por al menos cinco activos, aplicando: indicadores t&#233;cnicos, rendimientos, volatilidad, modelos ARCH/GARCH, VaR, CAPM, optimizaci&#243;n de Markowitz, y generaci&#243;n automatizada de se&#241;ales de trading.</p>
+<h3 className="font-bold text-lg text-primary mb-3">Objetivos Espec&#237;ficos</h3>
+<ol className="list-decimal pl-5 space-y-2 text-sm">
+<li>Implementar conexi&#243;n a APIs financieras para obtenci&#243;n din&#225;mica de datos de al menos cinco activos.</li>
+<li>Calcular y visualizar indicadores t&#233;cnicos (SMA, EMA, RSI, MACD, Bollinger, Estoc&#225;stico) de forma interactiva.</li>
+<li>Estimar rendimientos, evaluar propiedades emp&#237;ricas y aplicar pruebas de normalidad.</li>
+<li>Modelar volatilidad condicional mediante ARCH y GARCH con selecci&#243;n por AIC/BIC.</li>
+<li>Calcular VaR con al menos dos m&#233;todos y complementar con Expected Shortfall (CVaR).</li>
+<li>Estimar Beta y aplicar CAPM con tasa libre de riesgo obtenida de API oficial.</li>
+<li>Construir frontera eficiente de Markowitz y determinar portafolios &#243;ptimos.</li>
+<li className="text-green-700 font-semibold">&#9733; Implementar m&#243;dulo de se&#241;ales y alertas automatizadas basadas en indicadores t&#233;cnicos.</li>
+<li className="text-green-700 font-semibold">&#9733; Integrar datos macroecon&#243;micos desde APIs oficiales (FRED, Banco de la Rep&#250;blica).</li>
+<li className="text-green-700 font-semibold">&#9733; (Opcional) Construir API REST propia como backend del tablero.</li>
+</ol></div>
+)},
+
+{id:'api',title:'Datos y APIs',icon:'Globe',body:()=>(
+<div>
+<h3 className="font-bold text-lg text-primary mb-3">Requisitos de Datos</h3>
+<ul className="list-disc pl-5 space-y-2 text-sm mb-6">
+<li>M&#237;nimo <strong>cinco activos</strong> de renta variable de distintos sectores o geograf&#237;as.</li>
+<li>Horizonte hist&#243;rico m&#237;nimo de <strong>dos a&#241;os</strong> de datos diarios.</li>
+<li className="text-green-700 font-semibold">&#9733; Los datos deben obtenerse din&#225;micamente desde una API. No se aceptan datasets est&#225;ticos.</li>
+<li className="text-green-700 font-semibold">&#9733; Consumir al menos una API de datos macro para la tasa libre de riesgo actualizada.</li>
+</ul>
+<h3 className="font-bold text-lg text-primary mb-3">APIs Recomendadas</h3>
+<table className="rtable mb-6"><thead><tr><th>API</th><th>Uso principal</th><th>Acceso</th></tr></thead><tbody>
+<tr><td className="font-semibold">Yahoo Finance</td><td>Precios hist&#243;ricos y en tiempo real</td><td>Gratuito, sin key</td></tr>
+<tr><td className="font-semibold">Alpha Vantage</td><td>Precios, indicadores, divisas</td><td>Gratuito con API key</td></tr>
+<tr><td className="font-semibold">Finnhub</td><td>Real-time, noticias, sentimiento</td><td>Gratuito con API key</td></tr>
+<tr><td className="font-semibold">FRED API</td><td>Datos macro: tasas, inflaci&#243;n, PIB</td><td>Gratuito con API key</td></tr>
+<tr><td className="font-semibold">Banco de la Rep&#250;blica</td><td>DTF, TES, IPC de Colombia</td><td>Abierto</td></tr>
+<tr><td className="font-semibold">Polygon.io</td><td>Datos de mercado con WebSocket</td><td>Plan gratuito limitado</td></tr>
+</tbody></table>
+<h3 className="font-bold text-lg text-primary mb-3">Herramientas</h3>
+<ul className="list-disc pl-5 space-y-2 text-sm">
+<li>C&#243;digo en <strong>R, Python o ambos</strong>.</li>
+<li>Tablero en: <strong>Streamlit, Shiny, Power BI, Looker Studio, Bokeh, Dash</strong>.</li>
+<li className="text-green-700 font-semibold">&#9733; Usar librer&#237;as HTTP (requests, httr2) con manejo de errores, reintentos y caching.</li>
+<li>Se permite y fomenta el uso de <strong>IA como asistente</strong>.</li>
+</ul></div>
+)},
+
+{id:'arch',title:'Arquitectura del proyecto \u2605\u2605',icon:'Code',body:()=>(
+<div>
+<div className="new-tag p-4 text-sm mb-6"><strong className="text-green-700"><i className="fas fa-star mr-1"></i><i className="fas fa-star mr-1"></i> Secci&#243;n nueva:</strong> Los conceptos aprendidos en el curso de <strong>Python para APIs e IA</strong> (FastAPI, Pydantic, inyecci&#243;n de dependencias, decoradores, HTTP, POO) deben aplicarse directamente en este proyecto.</div>
+
+<h3 className="font-bold text-lg text-primary mb-3">Requisito: backend con FastAPI</h3>
+<p className="mb-4 text-sm">El proyecto <strong>debe</strong> incluir un backend construido con <strong>FastAPI</strong> que sirva como motor de c&#225;lculo del tablero. El frontend (Streamlit, Shiny, etc.) consumir&#225; los endpoints de esta API para obtener datos procesados. Esta separaci&#243;n entre l&#243;gica y presentaci&#243;n es la arquitectura que se trabaj&#243; en el curso de APIs.</p>
+
+<h4 className="font-semibold text-sm text-secondary mt-5 mb-2"><i className="fas fa-server mr-1"></i> Endpoints m&#237;nimos requeridos</h4>
+<table className="rtable mb-6"><thead><tr><th>Endpoint</th><th>M&#233;todo</th><th>Descripci&#243;n</th></tr></thead><tbody>
+<tr><td className="font-mono text-xs">/activos</td><td>GET</td><td>Lista los activos disponibles en el portafolio.</td></tr>
+<tr><td className="font-mono text-xs">/precios/&#123;ticker&#125;</td><td>GET</td><td>Retorna precios hist&#243;ricos de un activo (con par&#225;metros de fecha).</td></tr>
+<tr><td className="font-mono text-xs">/rendimientos/&#123;ticker&#125;</td><td>GET</td><td>Retorna rendimientos calculados (simples y logar&#237;tmicos).</td></tr>
+<tr><td className="font-mono text-xs">/indicadores/&#123;ticker&#125;</td><td>GET</td><td>Retorna indicadores t&#233;cnicos (SMA, EMA, RSI, MACD, etc.).</td></tr>
+<tr><td className="font-mono text-xs">/var</td><td>POST</td><td>Recibe un portafolio (pesos + tickers) y retorna VaR y CVaR.</td></tr>
+<tr><td className="font-mono text-xs">/capm</td><td>GET</td><td>Retorna Beta y rendimiento esperado CAPM de cada activo.</td></tr>
+<tr><td className="font-mono text-xs">/frontera-eficiente</td><td>POST</td><td>Recibe tickers y retorna puntos de la frontera y portafolios &#243;ptimos.</td></tr>
+<tr><td className="font-mono text-xs">/alertas</td><td>GET</td><td>Retorna se&#241;ales activas de compra/venta por activo.</td></tr>
+<tr><td className="font-mono text-xs">/macro</td><td>GET</td><td>Retorna indicadores macroecon&#243;micos actualizados (Rf, inflaci&#243;n).</td></tr>
+</tbody></table>
+
+<h4 className="font-semibold text-sm text-secondary mt-5 mb-2"><i className="fas fa-shield-alt mr-1"></i> Validaci&#243;n con Pydantic</h4>
+<p className="mb-3 text-sm">Todos los datos de entrada y salida de la API deben estar validados con <strong>modelos Pydantic</strong>, aplicando los conceptos de las semanas 2, 4 y 5 del curso de APIs:</p>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li><strong>Request models:</strong> validar tickers (formato, longitud), rangos de fechas, pesos del portafolio (que sumen 1.0), niveles de confianza del VaR, etc.</li>
+<li><strong>Response models:</strong> definir esquemas tipados para cada respuesta (rendimientos, indicadores, VaR, portafolios &#243;ptimos).</li>
+<li>Usar <code className="bg-gray-100 px-1 rounded">Field()</code> con descripciones, valores por defecto, y restricciones (ge, le, min_length).</li>
+<li>Implementar al menos un <code className="bg-gray-100 px-1 rounded">@field_validator</code> personalizado (ej: validar que los pesos sumen 1.0).</li>
+</ul>
+
+<h4 className="font-semibold text-sm text-secondary mt-5 mb-2"><i className="fas fa-puzzle-piece mr-1"></i> Inyecci&#243;n de dependencias</h4>
+<p className="mb-3 text-sm">Aplicar el sistema <code className="bg-gray-100 px-1 rounded">Depends()</code> de FastAPI (Semana 6) para desacoplar la l&#243;gica:</p>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li>Crear una dependencia para el <strong>servicio de datos</strong> (conexi&#243;n a la API financiera externa).</li>
+<li>Crear una dependencia para la <strong>configuraci&#243;n</strong> (BaseSettings con API keys, par&#225;metros por defecto).</li>
+<li>Las rutas no deben contener l&#243;gica de negocio directa; deben delegar a servicios inyectados.</li>
+</ul>
+
+<h4 className="font-semibold text-sm text-secondary mt-5 mb-2"><i className="fas fa-cog mr-1"></i> Configuraci&#243;n con BaseSettings</h4>
+<p className="mb-3 text-sm">Aplicar el patr&#243;n de configuraci&#243;n de la Semana 6:</p>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li>Crear una clase <code className="bg-gray-100 px-1 rounded">Settings(BaseSettings)</code> con las API keys, par&#225;metros del modelo (nivel de confianza del VaR, per&#237;odo del SMA, etc.).</li>
+<li>Cargar configuraci&#243;n desde un archivo <code className="bg-gray-100 px-1 rounded">.env</code> (nunca hardcodeada).</li>
+<li>Documentar todas las variables de entorno en el README.</li>
+</ul>
+
+<h4 className="font-semibold text-sm text-secondary mt-5 mb-2"><i className="fas fa-layer-group mr-1"></i> Estructura de proyecto sugerida</h4>
+<div className="bg-gray-900 text-gray-100 p-4 rounded-xl text-xs font-mono mb-4 overflow-x-auto">
+<pre>{`proyecto-riesgo/
+\u251C\u2500\u2500 backend/
+\u2502   \u251C\u2500\u2500 app/
+\u2502   \u2502   \u251C\u2500\u2500 main.py           # FastAPI app, routers
+\u2502   \u2502   \u251C\u2500\u2500 models.py         # Modelos Pydantic (request/response)
+\u2502   \u2502   \u251C\u2500\u2500 services.py       # L\u00F3gica de negocio (c\u00E1lculos)
+\u2502   \u2502   \u251C\u2500\u2500 dependencies.py   # Depends(), conexi\u00F3n a APIs externas
+\u2502   \u2502   \u2514\u2500\u2500 config.py         # BaseSettings, variables de entorno
+\u2502   \u251C\u2500\u2500 requirements.txt
+\u2502   \u2514\u2500\u2500 .env
+\u251C\u2500\u2500 frontend/
+\u2502   \u2514\u2500\u2500 app.py               # Streamlit/Shiny (consume el backend)
+\u251C\u2500\u2500 README.md
+\u2514\u2500\u2500 .gitignore`}</pre>
+</div>
+
+<h4 className="font-semibold text-sm text-secondary mt-5 mb-2"><i className="fas fa-check-circle mr-1"></i> Otras buenas pr&#225;cticas esperadas</h4>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li><strong>Decoradores</strong> (Semana 1): implementar al menos un decorador personalizado (ej: logging de tiempo de ejecuci&#243;n, caching de resultados).</li>
+<li><strong>POO</strong> (Semana 2): encapsular la l&#243;gica de c&#225;lculo en clases (ej: <code className="bg-gray-100 px-1 rounded">PortfolioAnalyzer</code>, <code className="bg-gray-100 px-1 rounded">RiskCalculator</code>, <code className="bg-gray-100 px-1 rounded">TechnicalIndicators</code>).</li>
+<li><strong>Type hints</strong> (Semana 1): todo el c&#243;digo debe tener anotaciones de tipo.</li>
+<li><strong>Manejo de errores HTTP</strong> (Semana 2): responder con status codes apropiados (400 para datos inv&#225;lidos, 404 para ticker no encontrado, 503 si la API externa falla).</li>
+<li><strong>async/await</strong> (Semana 4): usar rutas as&#237;ncronas para las llamadas a APIs financieras externas.</li>
+<li><strong>Git</strong> (Semana 1): repositorio con historial de commits significativos, <code className="bg-gray-100 px-1 rounded">.gitignore</code> y README completo.</li>
+<li><strong>Entorno virtual</strong> (Semana 1): <code className="bg-gray-100 px-1 rounded">requirements.txt</code> con versiones fijas.</li>
+</ul>
+
+<div className="tip-box p-4 text-sm"><strong className="text-primary">Documentaci&#243;n autom&#225;tica:</strong> FastAPI genera documentaci&#243;n interactiva en <code className="bg-gray-100 px-1 rounded">/docs</code> (Swagger UI). Los modelos Pydantic con <code className="bg-gray-100 px-1 rounded">Field(description=...)</code> enriquecen esta documentaci&#243;n autom&#225;ticamente. La calidad de la documentaci&#243;n generada se evaluar&#225; en la sustentaci&#243;n.</div>
+</div>
+)},
+
+{id:'m1',title:'M\u00F3d. 1: An\u00E1lisis t\u00E9cnico',icon:'Chart',body:()=>(
+<div>
+<p className="mb-4 font-semibold text-primary">Permitir al usuario explorar el comportamiento hist&#243;rico de cada activo y visualizar indicadores t&#233;cnicos.</p>
+<ul className="list-disc pl-5 space-y-2 text-sm mb-4">
+<li className="text-green-700 font-semibold">&#9733; Selector din&#225;mico de activos: el usuario ingresa tickers y el tablero descarga datos en tiempo real.</li>
+<li>Gr&#225;fico de precios hist&#243;ricos (l&#237;nea o velas japonesas) con selector de rango de fechas.</li>
+<li>Promedios m&#243;viles superpuestos: <strong>SMA y EMA</strong> con par&#225;metros ajustables.</li>
+<li><strong>RSI</strong> con l&#237;neas de sobrecompra (70) y sobreventa (30).</li>
+<li><strong>MACD</strong> con l&#237;nea de se&#241;al e histograma.</li>
+<li><strong>Bandas de Bollinger</strong>.</li>
+<li><strong>Oscilador Estoc&#225;stico</strong> (%K y %D).</li>
+<li>Panel de texto explicativo para cada indicador.</li>
+</ul>
+<div className="tip-box p-4 text-sm"><strong className="text-primary">Tip:</strong> Usa plotly o altair para gr&#225;ficos interactivos con zoom, hover y selecci&#243;n de rangos.</div>
+</div>)},
+
+{id:'m2',title:'M\u00F3d. 2: Rendimientos',icon:'Trend',body:()=>(
+<div>
+<p className="mb-4 font-semibold text-primary">Caracterizar estad&#237;sticamente los rendimientos de cada activo.</p>
+<ul className="list-disc pl-5 space-y-2 text-sm">
+<li>C&#225;lculo de rendimientos simples y logar&#237;tmicos.</li>
+<li>Estad&#237;sticas descriptivas: media, desviaci&#243;n est&#225;ndar, asimetr&#237;a, curtosis.</li>
+<li>Histograma con curva normal superpuesta.</li>
+<li>Gr&#225;fico Q-Q contra la distribuci&#243;n normal.</li>
+<li>Boxplot de rendimientos.</li>
+<li>Pruebas de normalidad: <strong>Jarque-Bera</strong> y <strong>Shapiro-Wilk</strong>, con interpretaci&#243;n.</li>
+<li>Discusi&#243;n de hechos estilizados: colas pesadas, agrupamiento de volatilidad, efecto apalancamiento.</li>
+</ul></div>
+)},
+
+{id:'m3',title:'M\u00F3d. 3: ARCH/GARCH',icon:'Bar',body:()=>(
+<div>
+<p className="mb-4 font-semibold text-primary">Modelar la volatilidad condicional de al menos un activo representativo.</p>
+<ol className="list-decimal pl-5 space-y-2 text-sm mb-4">
+<li>Justificaci&#243;n de por qu&#233; se necesita un modelo de volatilidad condicional.</li>
+<li>Ajuste de al menos tres especificaciones: <strong>ARCH(1), GARCH(1,1)</strong> y una adicional.</li>
+<li>Tabla comparativa con Log-Likelihood, <strong>AIC y BIC</strong>.</li>
+<li>Diagn&#243;stico: Jarque-Bera sobre residuos estandarizados, gr&#225;fico de residuos.</li>
+<li>Pron&#243;stico de volatilidad (N-pasos o pron&#243;stico rodante).</li>
+</ol>
+<div className="tip-box p-4 text-sm"><strong className="text-primary">Tip:</strong> Usa la librer&#237;a <code className="bg-gray-100 px-1 rounded">arch</code> en Python o <code className="bg-gray-100 px-1 rounded">rugarch</code> en R.</div>
+</div>)},
+
+{id:'m4',title:'M\u00F3d. 4: CAPM y Beta',icon:'Shield',body:()=>(
+<div>
+<p className="mb-4 font-semibold text-primary">Cuantificar el riesgo sistem&#225;tico y estimar el rendimiento esperado seg&#250;n el CAPM.</p>
+<ul className="list-disc pl-5 space-y-2 text-sm">
+<li>C&#225;lculo del <strong>Beta</strong> de cada activo respecto al &#237;ndice de referencia.</li>
+<li>Gr&#225;fico de dispersi&#243;n: rendimientos del activo vs. &#237;ndice, con l&#237;nea de regresi&#243;n.</li>
+<li className="text-green-700 font-semibold">&#9733; CAPM con tasa libre de riesgo obtenida autom&#225;ticamente desde la API macro.</li>
+<li>Tabla resumen: Beta, rendimiento esperado, clasificaci&#243;n (agresivo, defensivo, neutro).</li>
+<li>Discusi&#243;n: riesgo sistem&#225;tico vs. no sistem&#225;tico y diversificaci&#243;n.</li>
+</ul></div>
+)},
+
+{id:'m5',title:'M\u00F3d. 5: VaR y CVaR',icon:'Shield',body:()=>(
+<div>
+<p className="mb-4 font-semibold text-primary">Cuantificar la p&#233;rdida potencial del portafolio.</p>
+<ol className="list-decimal pl-5 space-y-2 text-sm">
+<li><strong>VaR param&#233;trico</strong> al 95% y 99%, diario y anualizado.</li>
+<li><strong>VaR por simulaci&#243;n hist&#243;rica.</strong></li>
+<li><strong>VaR por simulaci&#243;n Montecarlo</strong> (m&#237;nimo 10,000 simulaciones).</li>
+<li><strong>Expected Shortfall (CVaR)</strong> como medida complementaria.</li>
+<li>Tabla comparativa de m&#233;todos con interpretaci&#243;n.</li>
+<li>Visualizaci&#243;n: distribuci&#243;n de rendimientos con l&#237;neas de VaR y CVaR.</li>
+<li>(Opcional) Backtesting con test de Kupiec.</li>
+</ol></div>
+)},
+
+{id:'m6',title:'M\u00F3d. 6: Markowitz',icon:'Target',body:()=>(
+<div>
+<p className="mb-4 font-semibold text-primary">Construir la frontera eficiente y encontrar portafolios &#243;ptimos.</p>
+<ul className="list-disc pl-5 space-y-2 text-sm">
+<li>Matriz de correlaci&#243;n entre activos (heatmap interactivo).</li>
+<li>Simulaci&#243;n de al menos <strong>10,000 portafolios</strong> aleatorios.</li>
+<li>Gr&#225;fico del conjunto factible con <strong>frontera eficiente</strong> resaltada.</li>
+<li>Portafolio de <strong>m&#237;nima varianza</strong> y de <strong>m&#225;ximo ratio de Sharpe</strong>.</li>
+<li>Tabla con la composici&#243;n (% de cada activo) de ambos portafolios.</li>
+<li>(Opcional) El usuario ingresa rendimiento objetivo y obtiene portafolio eficiente.</li>
+</ul></div>
+)},
+
+{id:'m7',title:'M\u00F3d. 7: Se\u00F1ales \u2605',icon:'Zap',body:()=>(
+<div>
+<div className="new-tag p-3 text-sm mb-4"><strong className="text-green-700"><i className="fas fa-star mr-1"></i> M&#243;dulo nuevo</strong> &#8212; Operacionaliza indicadores t&#233;cnicos como se&#241;ales de compra/venta.</div>
+<p className="mb-3 text-sm">El sistema debe evaluar autom&#225;ticamente para cada activo:</p>
+<ol className="list-decimal pl-5 space-y-2 text-sm mb-4">
+<li><strong>Cruce del MACD:</strong> l&#237;nea MACD cruzando se&#241;al (compra/venta).</li>
+<li><strong>RSI en zonas extremas:</strong> RSI mayor a 70 (sobrecompra) o menor a 30 (sobreventa).</li>
+<li><strong>Bandas de Bollinger:</strong> precio tocando banda superior o inferior.</li>
+<li><strong>Cruce de medias m&#243;viles:</strong> golden cross / death cross.</li>
+<li><strong>Oscilador Estoc&#225;stico:</strong> %K cruzando %D en zonas extremas.</li>
+</ol>
+<h4 className="font-bold text-sm text-primary mb-2">Presentaci&#243;n:</h4>
+<ul className="list-disc pl-5 space-y-2 text-sm">
+<li>Panel de alertas tipo <strong>sem&#225;foro o tarjetas</strong> por activo.</li>
+<li>Umbrales <strong>configurables</strong> por el usuario.</li>
+<li>Texto interpretativo autom&#225;tico en lenguaje simple.</li>
+</ul></div>
+)},
+
+{id:'m8',title:'M\u00F3d. 8: Macro y benchmark \u2605',icon:'Globe',body:()=>(
+<div>
+<div className="new-tag p-3 text-sm mb-4"><strong className="text-green-700"><i className="fas fa-star mr-1"></i> M&#243;dulo nuevo</strong> &#8212; Contexto macro y comparaci&#243;n con benchmark.</div>
+<ul className="list-disc pl-5 space-y-2 text-sm">
+<li>Panel de indicadores macroecon&#243;micos actualizados v&#237;a API: tasa libre de riesgo, inflaci&#243;n, tasa de cambio.</li>
+<li>Rendimiento acumulado del portafolio &#243;ptimo vs. benchmark (base 100).</li>
+<li>M&#233;tricas: <strong>Alpha de Jensen</strong>, <strong>Tracking Error</strong>, <strong>Information Ratio</strong>.</li>
+<li>Tabla de desempe&#241;o: rendimiento acumulado, anualizado, volatilidad, Sharpe, <strong>m&#225;ximo drawdown</strong>.</li>
+<li>Interpretaci&#243;n: &#191;El portafolio super&#243; al benchmark? &#191;El alpha es significativo?</li>
+</ul>
+<div className="tip-box p-4 text-sm mt-4"><strong className="text-primary">Nota:</strong> Los datos macro se obtienen a trav&#233;s del backend FastAPI (ver secci&#243;n <em>Arquitectura del proyecto</em>). El endpoint <code className="bg-gray-100 px-1 rounded">/macro</code> debe retornar estos indicadores en formato JSON validado con Pydantic.</div>
+</div>)},
+
+{id:'rub',title:'R\u00FAbrica de evaluaci\u00F3n',icon:'Award',body:()=>(
+<div>
+<p className="mb-4 text-sm">Calificaci&#243;n total sobre <strong>5.0</strong>. Cada criterio se eval&#250;a en cinco niveles. La nota final es el promedio ponderado.</p>
+
+<p className="mb-2 mt-6 font-bold text-primary text-sm">1. An&#225;lisis t&#233;cnico e indicadores (10%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0 Excelente</th><th>4.5&#8211;4.9 Muy bueno</th><th>4.0&#8211;4.4 Bueno</th><th>3.5&#8211;3.9 Aceptable</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Todos los indicadores (SMA, EMA, RSI, MACD, Bollinger, Estoc&#225;stico) implementados, interactivos, con datos en tiempo real v&#237;a API y panel interpretativo claro para cada uno.</td><td>Todos los indicadores presentes e interactivos. Datos v&#237;a API. Falta profundidad en alguna interpretaci&#243;n.</td><td>Al menos 4 indicadores correctos. Datos v&#237;a API pero con limitaciones en la interactividad o par&#225;metros no ajustables.</td><td>Al menos 3 indicadores implementados. Datos est&#225;ticos o parcialmente din&#225;micos. Interpretaciones superficiales.</td><td>Menos de 3 indicadores, o errores conceptuales graves en su c&#225;lculo. Sin conexi&#243;n a API.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">2. Rendimientos y propiedades emp&#237;ricas (6%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Rendimientos simples y logar&#237;tmicos correctos. Descriptivos completos. Histograma, Q-Q, boxplot. Jarque-Bera y Shapiro-Wilk con interpretaci&#243;n. Discusi&#243;n profunda de hechos estilizados.</td><td>Todo lo anterior pero la discusi&#243;n de hechos estilizados es breve o le falta alg&#250;n detalle.</td><td>Rendimientos y pruebas correctos. Faltan 1&#8211;2 visualizaciones o la interpretaci&#243;n de pruebas es mec&#225;nica.</td><td>Rendimientos calculados correctamente pero faltan pruebas de normalidad o no se discuten propiedades emp&#237;ricas.</td><td>Rendimientos mal calculados o ausentes. No hay an&#225;lisis de propiedades.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">3. Modelos ARCH/GARCH (10%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>3+ especificaciones comparadas con AIC/BIC en tabla. Diagn&#243;stico completo de residuos (Jarque-Bera, gr&#225;fico). Pron&#243;stico de volatilidad (rodante o N-pasos). Justificaci&#243;n s&#243;lida de heterocedasticidad.</td><td>3 modelos comparados, diagn&#243;stico presente. Pron&#243;stico incluido pero sin mucha discusi&#243;n de resultados.</td><td>2 modelos comparados con AIC/BIC. Diagn&#243;stico parcial (falta gr&#225;fico o prueba). Sin pron&#243;stico o solo b&#225;sico.</td><td>Solo un modelo GARCH(1,1) ajustado sin comparaci&#243;n. Sin diagn&#243;stico formal de residuos.</td><td>No se ajustan modelos de volatilidad condicional, o los resultados contienen errores fundamentales.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">4. CAPM y riesgo sistem&#225;tico (6%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Beta calculado para todos los activos. Dispersi&#243;n con regresi&#243;n. CAPM con Rf desde API documentada. Tabla resumen. Discusi&#243;n s&#243;lida de riesgo sistem&#225;tico vs. no sistem&#225;tico.</td><td>Beta y CAPM correctos con Rf desde API. Falta profundidad en la discusi&#243;n de diversificaci&#243;n.</td><td>Beta y CAPM correctos pero Rf ingresada manualmente con justificaci&#243;n. Discusi&#243;n breve.</td><td>Beta calculado para algunos activos. CAPM aplicado pero sin documentar fuente de Rf.</td><td>No se calcula Beta, o el CAPM tiene errores conceptuales (f&#243;rmula mal aplicada).</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">5. Valor en Riesgo y CVaR (10%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>3 m&#233;todos (param&#233;trico, hist&#243;rico, Montecarlo). CVaR incluido. Tabla comparativa con interpretaci&#243;n. Visualizaci&#243;n de distribuci&#243;n con l&#237;neas de VaR/CVaR. Backtesting (Kupiec) implementado.</td><td>3 m&#233;todos + CVaR + tabla comparativa + visualizaci&#243;n. Sin backtesting pero la interpretaci&#243;n es s&#243;lida.</td><td>2 m&#233;todos + CVaR. Tabla comparativa presente. Falta alguna visualizaci&#243;n o la interpretaci&#243;n es breve.</td><td>1 m&#233;todo de VaR correctamente implementado. Sin CVaR o sin comparaci&#243;n entre m&#233;todos.</td><td>VaR ausente, mal calculado, o con errores conceptuales (confusi&#243;n de percentiles, f&#243;rmula incorrecta).</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">6. Optimizaci&#243;n de portafolio &#8212; Markowitz (10%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Heatmap de correlaci&#243;n interactivo. 10,000+ portafolios simulados. Frontera eficiente clara. Portafolios de m&#237;nima varianza y m&#225;ximo Sharpe identificados con composici&#243;n detallada. Usuario puede elegir rendimiento objetivo.</td><td>Frontera eficiente correcta, ambos portafolios &#243;ptimos con composici&#243;n. Heatmap presente. Sin opci&#243;n de rendimiento objetivo.</td><td>Frontera eficiente visible. Se identifica al menos un portafolio &#243;ptimo con composici&#243;n. Heatmap b&#225;sico.</td><td>Simulaci&#243;n de portafolios presente pero la frontera no se distingue claramente. Falta identificar &#243;ptimos.</td><td>No se construye la frontera eficiente o la simulaci&#243;n tiene errores fundamentales.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-green-700 text-sm">7. &#9733; Se&#241;ales y alertas &#8212; M&#243;dulo 7 (7%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Se&#241;ales autom&#225;ticas para 4+ indicadores. Panel tipo sem&#225;foro/cards. Umbrales configurables por el usuario. Texto interpretativo autom&#225;tico en lenguaje claro.</td><td>Se&#241;ales para 3+ indicadores con panel visual. Umbrales configurables. Texto interpretativo presente pero breve.</td><td>Se&#241;ales para 2 indicadores. Panel funcional pero sin configuraci&#243;n de umbrales o sin texto interpretativo.</td><td>Se&#241;ales b&#225;sicas para 1 indicador. Sin panel visual dedicado (solo texto plano).</td><td>M&#243;dulo ausente o se&#241;ales implementadas con errores l&#243;gicos (condiciones invertidas, etc.).</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-green-700 text-sm">8. &#9733; Contexto macro y benchmark &#8212; M&#243;dulo 8 (6%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Datos macro v&#237;a API (Rf, inflaci&#243;n). Rendimiento acumulado vs. benchmark. Alpha de Jensen, Tracking Error, Information Ratio. Tabla de desempe&#241;o completa. Interpretaci&#243;n profunda.</td><td>Datos macro v&#237;a API. Comparaci&#243;n vs. benchmark con al menos 2 m&#233;tricas. Interpretaci&#243;n presente.</td><td>Benchmark mostrado. Datos macro presentes pero manuales. 1 m&#233;trica comparativa calculada.</td><td>Benchmark graficado pero sin m&#233;tricas comparativas formales. Sin datos macro v&#237;a API.</td><td>M&#243;dulo ausente o benchmark incorrecto.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-green-700 text-sm">9. &#9733;&#9733; Backend FastAPI y Pydantic (12%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>API FastAPI funcional con 7+ endpoints. Modelos Pydantic completos (request y response) con Field() y al menos un @field_validator. Depends() para servicios y configuraci&#243;n. BaseSettings con .env. Rutas async. Status codes correctos. Documentaci&#243;n /docs clara y &#250;til.</td><td>API con 5+ endpoints funcionales. Pydantic para requests y responses. Depends() presente. BaseSettings con .env. Alguna ruta no async o alg&#250;n modelo sin Field().</td><td>API con 3&#8211;4 endpoints. Pydantic b&#225;sico (sin Field ni validators personalizados). Sin Depends() o con inyecci&#243;n parcial. Configuraci&#243;n funcional pero sin BaseSettings.</td><td>API con 1&#8211;2 endpoints funcionales. Sin Pydantic o validaci&#243;n m&#237;nima. Sin inyecci&#243;n de dependencias. API keys en c&#243;digo.</td><td>No se implementa backend FastAPI, o la API no funciona. Sin modelos Pydantic.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">10. Calidad del tablero (frontend) (7%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Dise&#241;o profesional, navegaci&#243;n intuitiva (tabs/sidebar). Datos din&#225;micos desde el backend. Caching implementado. Manejo de errores con mensajes al usuario. Sin fallos.</td><td>Dise&#241;o limpio, datos din&#225;micos desde backend. Manejo de errores b&#225;sico. Alg&#250;n detalle de UX menor.</td><td>Tablero funcional. Consume el backend pero con alguna llamada directa a la API externa. Navegaci&#243;n confusa en alguna secci&#243;n.</td><td>Tablero funcional pero no consume el backend FastAPI (todo monol&#237;tico). Problemas de carga o dise&#241;o descuidado.</td><td>Tablero no ejecutable o con errores cr&#237;ticos.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">11. Buenas pr&#225;cticas (Git, venv, documentaci&#243;n) (6%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Repositorio Git con historial de commits significativos. requirements.txt con versiones fijas. .gitignore correcto. .env documentado. README completo (instalaci&#243;n, ejecuci&#243;n, APIs, variables de entorno). Type hints en todo el c&#243;digo. Al menos un decorador personalizado. Estructura de carpetas clara (backend/frontend).</td><td>Git con commits razonables. requirements.txt presente. README con instrucciones de ejecuci&#243;n. Type hints en la mayor&#237;a del c&#243;digo. Estructura organizada.</td><td>Git b&#225;sico (pocos commits). requirements.txt presente. README incompleto (falta documentaci&#243;n de variables de entorno o APIs). Type hints parciales.</td><td>Repositorio Git con un solo commit o sin historial &#250;til. Sin requirements.txt o incompleto. README m&#237;nimo. Sin type hints.</td><td>Sin repositorio Git, o c&#243;digo desorganizado en un solo archivo. Sin documentaci&#243;n.</td></tr>
+</tbody></table>
+
+<p className="mb-2 font-bold text-primary text-sm">12. Sustentaci&#243;n oral (10%)</p>
+<table className="rtable mb-6"><thead><tr><th>5.0</th><th>4.5&#8211;4.9</th><th>4.0&#8211;4.4</th><th>3.5&#8211;3.9</th><th>Menos de 3.5</th></tr></thead><tbody>
+<tr><td>Ambos integrantes demuestran dominio total. Demo en vivo fluida. Muestran la documentaci&#243;n /docs de FastAPI. Responden preguntas t&#233;cnicas (Pydantic, Depends, async) y conceptuales (VaR, CAPM, Markowitz) con solidez.</td><td>Ambos participan con buen dominio. Alguna vacilaci&#243;n en preguntas puntuales de arquitectura pero resuelven correctamente.</td><td>Ambos participan. Dominio general pero un integrante no puede explicar la arquitectura FastAPI o alg&#250;n m&#243;dulo estad&#237;stico.</td><td>Un integrante domina; el otro solo explica su parte. No pueden explicar decisiones de arquitectura.</td><td>No se puede explicar o defender el trabajo. Demo fallida o solo un integrante participa.</td></tr>
+</tbody></table>
+
+<div className="tip-box p-4 text-sm"><strong className="text-primary">Bonificaci&#243;n (hasta +0.5 sobre 5.0):</strong> Contenerizaci&#243;n con Docker (Semana 9 del curso de APIs), despliegue en la nube (Railway/Render), backtesting del VaR con test de Kupiec, testing automatizado con pytest (Semana 8), optimizaci&#243;n interactiva por rendimiento objetivo, o cualquier an&#225;lisis adicional que demuestre profundidad.</div>
+</div>)},
+
+{id:'cron',title:'Cronograma sugerido',icon:'Cal',body:()=>(
+<div>
+<p className="mb-4 text-sm">Cronograma orientativo para 15 d&#237;as. Las actividades de backend (FastAPI) se desarrollan <strong>en paralelo</strong> con los m&#243;dulos de an&#225;lisis.</p>
+<table className="rtable"><thead><tr><th>D&#237;as</th><th>Actividad</th><th>Entregable parcial</th></tr></thead><tbody>
+<tr><td className="font-semibold">1&#8211;2</td><td>Conformaci&#243;n de equipo, selecci&#243;n de activos. Inicializar repositorio Git, crear venv, configurar .env y BaseSettings. Probar conexi&#243;n a APIs financieras.</td><td>Repo Git, venv, conexi&#243;n API funcional.</td></tr>
+<tr><td className="font-semibold">3&#8211;5</td><td>Backend: endpoints /precios, /rendimientos, /indicadores con modelos Pydantic. Frontend: M&#243;dulos 1 y 2 consumiendo el backend.</td><td>API con 3 endpoints + primeras pesta&#241;as del tablero.</td></tr>
+<tr><td className="font-semibold">6&#8211;8</td><td>Backend: endpoints /capm, /var. Servicios con Depends(). Frontend: M&#243;dulos 3 y 4 (ARCH/GARCH, CAPM).</td><td>Modelos de volatilidad ajustados, CAPM funcional.</td></tr>
+<tr><td className="font-semibold">9&#8211;11</td><td>Backend: endpoints /frontera-eficiente, /alertas, /macro. Frontend: M&#243;dulos 5, 6 y 7 (VaR, Markowitz, se&#241;ales).</td><td>Todos los endpoints + m&#243;dulos core integrados.</td></tr>
+<tr><td className="font-semibold">12&#8211;13</td><td>M&#243;dulo 8 (benchmark). Integraci&#243;n final, pulido del tablero, @field_validators, decoradores. Redacci&#243;n del informe ejecutivo.</td><td>Tablero completo, borrador del informe.</td></tr>
+<tr><td className="font-semibold">14&#8211;15</td><td>README final, documentaci&#243;n /docs, pruebas de ejecuci&#243;n. Preparaci&#243;n de la sustentaci&#243;n.</td><td>Todos los entregables finales.</td></tr>
+</tbody></table></div>
+)},
+
+{id:'ent',title:'Entregables',icon:'Box',body:()=>(
+<div>
+<p className="mb-6 text-sm">Cada grupo debe entregar los siguientes cinco componentes. Todos son <strong>obligatorios</strong> y se eval&#250;an de forma integral.</p>
+
+<div className="usta-card p-6 mb-5">
+<div className="flex items-start gap-3 mb-3">
+<div className="usta-gradient p-2 rounded-lg text-white flex-shrink-0"><i className="fas fa-server text-sm"></i></div>
+<div>
+<h4 className="font-bold text-primary">1. Backend FastAPI</h4>
+<span className="text-xs text-gray-400">Carpeta <code className="bg-gray-100 px-1 rounded">/backend</code></span>
+</div>
+</div>
+<ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+<li>API funcional con m&#237;nimo <strong>7 endpoints</strong> (ver secci&#243;n <em>Arquitectura del proyecto</em>).</li>
+<li>Modelos Pydantic para <strong>request y response</strong> de cada endpoint, con <code className="bg-gray-100 px-1 rounded">Field()</code> y al menos un <code className="bg-gray-100 px-1 rounded">@field_validator</code> personalizado.</li>
+<li>Inyecci&#243;n de dependencias con <code className="bg-gray-100 px-1 rounded">Depends()</code> para servicios y configuraci&#243;n.</li>
+<li>Configuraci&#243;n con <code className="bg-gray-100 px-1 rounded">BaseSettings</code> y archivo <code className="bg-gray-100 px-1 rounded">.env</code>.</li>
+<li>Documentaci&#243;n autom&#225;tica funcional en <code className="bg-gray-100 px-1 rounded">/docs</code> (Swagger UI).</li>
+<li>Archivo <code className="bg-gray-100 px-1 rounded">requirements.txt</code> con versiones fijas.</li>
+</ul>
+</div>
+
+<div className="usta-card p-6 mb-5">
+<div className="flex items-start gap-3 mb-3">
+<div className="usta-gradient p-2 rounded-lg text-white flex-shrink-0"><i className="fas fa-chart-line text-sm"></i></div>
+<div>
+<h4 className="font-bold text-primary">2. Tablero interactivo (frontend)</h4>
+<span className="text-xs text-gray-400">Carpeta <code className="bg-gray-100 px-1 rounded">/frontend</code> &#8212; Streamlit, Shiny, Dash, Power BI o equivalente</span>
+</div>
+</div>
+<ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+<li>Dashboard con los <strong>8 m&#243;dulos tem&#225;ticos</strong> del proyecto (an&#225;lisis t&#233;cnico, rendimientos, ARCH/GARCH, CAPM, VaR, Markowitz, se&#241;ales, macro/benchmark).</li>
+<li>Debe consumir el backend FastAPI (no ejecutar la l&#243;gica de c&#225;lculo directamente).</li>
+<li>Navegaci&#243;n clara entre m&#243;dulos (tabs, sidebar o equivalente).</li>
+<li>Textos interpretativos que demuestren comprensi&#243;n conceptual.</li>
+<li>Funcional y <strong>sin errores de ejecuci&#243;n</strong>.</li>
+</ul>
+</div>
+
+<div className="usta-card p-6 mb-5">
+<div className="flex items-start gap-3 mb-3">
+<div className="usta-gradient p-2 rounded-lg text-white flex-shrink-0"><i className="fab fa-github text-sm"></i></div>
+<div>
+<h4 className="font-bold text-primary">3. Repositorio Git</h4>
+<span className="text-xs text-gray-400">GitHub o GitLab</span>
+</div>
+</div>
+<ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+<li><strong>Historial de commits</strong> significativos (no un solo commit con todo el c&#243;digo).</li>
+<li>Archivo <code className="bg-gray-100 px-1 rounded">.gitignore</code> que excluya <code className="bg-gray-100 px-1 rounded">.env</code>, <code className="bg-gray-100 px-1 rounded">__pycache__</code>, datos temporales, etc.</li>
+<li>Archivo <code className="bg-gray-100 px-1 rounded">.env.example</code> con las variables de entorno necesarias (sin valores reales).</li>
+<li><strong>README.md completo</strong> que incluya:</li>
+</ul>
+<div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-3 ml-5">
+<p className="text-xs font-bold text-gray-500 uppercase mb-2">Contenido m&#237;nimo del README</p>
+<ul className="list-disc pl-4 space-y-1 text-xs text-gray-600">
+<li>Nombre del proyecto y autores.</li>
+<li>Descripci&#243;n breve del proyecto.</li>
+<li>Instrucciones de instalaci&#243;n (clonar, crear venv, instalar dependencias).</li>
+<li>C&#243;mo configurar las variables de entorno (qu&#233; API keys se necesitan, d&#243;nde obtenerlas).</li>
+<li>C&#243;mo ejecutar el backend (<code className="bg-gray-100 px-1 rounded">uvicorn app.main:app --reload</code>).</li>
+<li>C&#243;mo ejecutar el frontend (<code className="bg-gray-100 px-1 rounded">streamlit run frontend/app.py</code> o equivalente).</li>
+<li>Documentaci&#243;n de los endpoints principales (o referencia a <code className="bg-gray-100 px-1 rounded">/docs</code>).</li>
+<li>Activos seleccionados y justificaci&#243;n de la elecci&#243;n.</li>
+<li>(Opcional) Secci&#243;n de uso de herramientas de IA.</li>
+</ul>
+</div>
+</div>
+
+<div className="usta-card p-6 mb-5">
+<div className="flex items-start gap-3 mb-3">
+<div className="usta-gradient p-2 rounded-lg text-white flex-shrink-0"><i className="fas fa-file-pdf text-sm"></i></div>
+<div>
+<h4 className="font-bold text-primary">4. Informe ejecutivo</h4>
+<span className="text-xs text-gray-400">PDF &#8212; M&#225;ximo 5 p&#225;ginas</span>
+</div>
+</div>
+<ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+<li>Resumen de los <strong>principales hallazgos</strong> del an&#225;lisis de riesgo.</li>
+<li>Descripci&#243;n de las <strong>decisiones metodol&#243;gicas</strong> (&#191;por qu&#233; esos activos? &#191;qu&#233; modelo GARCH? &#191;qu&#233; m&#233;todo de VaR?).</li>
+<li>Breve descripci&#243;n de la <strong>arquitectura t&#233;cnica</strong> (backend/frontend, endpoints principales).</li>
+<li><strong>Conclusiones y recomendaciones</strong> de inversi&#243;n derivadas del an&#225;lisis.</li>
+<li>No se espera que sea un documento acad&#233;mico extenso; es un <strong>resumen ejecutivo</strong> pensado para un inversionista.</li>
+</ul>
+</div>
+
+<div className="usta-card p-6 mb-5">
+<div className="flex items-start gap-3 mb-3">
+<div className="usta-gradient p-2 rounded-lg text-white flex-shrink-0"><i className="fas fa-users text-sm"></i></div>
+<div>
+<h4 className="font-bold text-primary">5. Sustentaci&#243;n oral</h4>
+<span className="text-xs text-gray-400">Presencial &#8212; 15 a 20 minutos</span>
+</div>
+</div>
+<ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+<li><strong>Demostraci&#243;n en vivo</strong> del tablero funcionando (no capturas de pantalla ni video pregrabado).</li>
+<li>Mostrar la <strong>documentaci&#243;n /docs</strong> (Swagger UI) del backend FastAPI.</li>
+<li><strong>Ambos integrantes</strong> deben participar activamente y demostrar dominio de cualquier secci&#243;n del proyecto.</li>
+<li>Ronda de <strong>preguntas t&#233;cnicas</strong> (Pydantic, Depends, async, GARCH, VaR, Markowitz) y <strong>conceptuales</strong> (interpretaci&#243;n de resultados, decisiones de inversi&#243;n).</li>
+</ul>
+</div>
+
+<div className="tip-box p-4 text-sm mt-4"><strong className="text-primary"><i className="fas fa-calendar-check mr-1"></i> Fecha l&#237;mite:</strong> Todos los entregables (repositorio, tablero funcional, informe PDF) deben estar completos <strong>antes</strong> de la fecha de sustentaci&#243;n. El repositorio Git es la evidencia principal; aseg&#250;rense de que el &#250;ltimo commit refleje el estado final del proyecto.</div>
+</div>
+)},
+
+{id:'pol',title:'Pol\u00EDtica de IA y recomendaciones',icon:'Gear',body:()=>(
+<div>
+<h3 className="font-bold text-lg text-primary mb-3">Pol&#237;tica de uso de inteligencia artificial</h3>
+<p className="mb-3 text-sm">El uso de herramientas de IA (ChatGPT, Claude, Copilot, Gemini, etc.) est&#225; <strong>permitido y fomentado</strong> como apoyo en el desarrollo del proyecto. Sin embargo:</p>
+<ol className="list-decimal pl-5 space-y-2 text-sm mb-6">
+<li>El estudiante debe <strong>comprender completamente</strong> todo el c&#243;digo y los resultados producidos. La IA es un asistente, no un sustituto del aprendizaje.</li>
+<li>Durante la sustentaci&#243;n oral se evaluar&#225; la capacidad del estudiante para explicar las decisiones metodol&#243;gicas, interpretar los resultados y responder preguntas sobre <strong>cualquier parte</strong> del proyecto (incluyendo la arquitectura FastAPI, los modelos Pydantic y la l&#243;gica de c&#225;lculo).</li>
+<li>Copiar y pegar c&#243;digo o texto generado por IA sin comprensi&#243;n se considerar&#225; equivalente a <strong>plagio</strong> si no se puede defender en la sustentaci&#243;n.</li>
+<li>Se valora positivamente que el estudiante documente c&#243;mo utiliz&#243; la IA como herramienta de apoyo (por ejemplo, en una secci&#243;n del README titulada <em>&#8220;Uso de herramientas de IA&#8221;</em>).</li>
+</ol>
+
+<h3 className="font-bold text-lg text-primary mb-3">Recomendaciones t&#233;cnicas</h3>
+<h4 className="font-semibold text-sm text-secondary mt-4 mb-2"><i className="fas fa-database mr-1"></i> Sobre los datos</h4>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li>Verificar que no haya valores faltantes en las series de precios. Documentar la estrategia de manejo (interpolaci&#243;n, eliminaci&#243;n, etc.).</li>
+<li>Utilizar <strong>log-rendimientos</strong> por sus propiedades de aditividad temporal y estacionariedad.</li>
+<li>Al descargar datos con yfinance, verificar que las columnas sean consistentes (especialmente tras actualizaciones de la librer&#237;a).</li>
+</ul>
+<h4 className="font-semibold text-sm text-secondary mt-4 mb-2"><i className="fas fa-server mr-1"></i> Sobre el backend FastAPI</h4>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li className="text-green-700 font-semibold">&#9733;&#9733; Levantar el backend y el frontend como procesos separados. El frontend consume los endpoints del backend v&#237;a HTTP.</li>
+<li className="text-green-700 font-semibold">&#9733; Implementar caching (<code className="bg-gray-100 px-1 rounded">functools.lru_cache</code> o caching a nivel de servicio) para no llamar a APIs externas en cada request.</li>
+<li className="text-green-700 font-semibold">&#9733; Manejar errores HTTP con <code className="bg-gray-100 px-1 rounded">HTTPException</code> de FastAPI y status codes correctos (400, 404, 503).</li>
+<li className="text-green-700 font-semibold">&#9733; Nunca exponer API keys en c&#243;digo fuente. Usar <code className="bg-gray-100 px-1 rounded">BaseSettings</code> + archivo <code className="bg-gray-100 px-1 rounded">.env</code>.</li>
+<li>Probar la documentaci&#243;n autom&#225;tica en <code className="bg-gray-100 px-1 rounded">/docs</code> (Swagger UI) antes de la sustentaci&#243;n.</li>
+</ul>
+<h4 className="font-semibold text-sm text-secondary mt-4 mb-2"><i className="fas fa-desktop mr-1"></i> Sobre el tablero (frontend)</h4>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li>Priorizar la <strong>claridad sobre la est&#233;tica</strong>. Gr&#225;ficos legibles y navegaci&#243;n intuitiva.</li>
+<li>Incluir textos explicativos o tooltips que ayuden al usuario a interpretar cada visualizaci&#243;n.</li>
+<li>Si se usa Streamlit: <code className="bg-gray-100 px-1 rounded">st.tabs()</code> o <code className="bg-gray-100 px-1 rounded">st.sidebar</code>. Si se usa Shiny: <code className="bg-gray-100 px-1 rounded">navbarPage()</code>.</li>
+</ul>
+<h4 className="font-semibold text-sm text-secondary mt-4 mb-2"><i className="fas fa-microphone mr-1"></i> Sobre la sustentaci&#243;n</h4>
+<ul className="list-disc pl-5 space-y-1 text-sm mb-4">
+<li>Preparar <strong>demostraci&#243;n en vivo</strong> del tablero y de la documentaci&#243;n <code className="bg-gray-100 px-1 rounded">/docs</code> (no capturas de pantalla).</li>
+<li>Cada integrante debe poder explicar <strong>cualquier secci&#243;n</strong>, no solo la que desarroll&#243;.</li>
+</ul>
+<div className="usta-card p-4 mt-4">
+<h4 className="font-semibold text-sm text-primary mb-2"><i className="fas fa-question-circle mr-1"></i> Preguntas frecuentes en la sustentaci&#243;n</h4>
+<ul className="list-disc pl-5 space-y-1 text-sm text-gray-500 italic">
+<li>&#191;Por qu&#233; eligieron esos activos? &#191;Qu&#233; modelo GARCH seleccionaron y por qu&#233;?</li>
+<li>&#191;C&#243;mo validaron los datos de entrada con Pydantic? Muestre un @field_validator.</li>
+<li>&#191;Qu&#233; dependencias inyectan con Depends()? &#191;Por qu&#233; no pusieron la l&#243;gica directamente en la ruta?</li>
+<li>&#191;D&#243;nde est&#225;n las API keys? &#191;Qu&#233; pasa si la API externa no responde?</li>
+<li>&#191;Qu&#233; se&#241;ales est&#225; generando el sistema hoy y qu&#233; har&#237;a un inversionista?</li>
+<li>&#191;Cu&#225;l es la composici&#243;n del portafolio &#243;ptimo? &#191;Qu&#233; m&#233;todo de VaR es m&#225;s adecuado para su portafolio?</li>
+</ul>
+</div>
+</div>
+)},
+
+{id:'bib',title:'Bibliograf\u00EDa',icon:'Book',body:()=>(
+<div className="usta-card p-5">
+<ol className="list-decimal pl-5 space-y-3 text-sm">
+<li><em>Moscote Fl&#243;rez, O.</em> Elementos de estad&#237;stica en riesgo financiero. USTA, 2013.</li>
+<li><em>Holton, G. A.</em> Value at Risk: Theory and Practice. <a href="https://www.value-at-risk.net" className="text-secondary underline" target="_blank">value-at-risk.net</a></li>
+<li><em>Markowitz, H. (1952).</em> Portfolio Selection. The Journal of Finance, 7(1), 77&#8211;91.</li>
+<li><em>Tsay, R. S. (2010).</em> Analysis of Financial Time Series. 3rd ed., Wiley.</li>
+<li><em>Hull, J. C. (2018).</em> Risk Management and Financial Institutions. 5th ed., Wiley.</li>
+<li>Material de clase: Notebooks R Markdown del curso de Teor&#237;a del Riesgo, Prof. Javier Mauricio Sierra.</li>
+<li className="text-green-700 font-semibold">&#9733; Material de clase: HTMLs interactivos del curso de Python para APIs e IA, Prof. Javier Mauricio Sierra.</li>
+<li className="text-green-700 font-semibold">&#9733; APIs financieras: <a href="https://fred.stlouisfed.org/docs/api" className="underline" target="_blank">FRED</a>, <a href="https://pypi.org/project/yfinance/" className="underline" target="_blank">yfinance</a>, <a href="https://www.alphavantage.co/documentation/" className="underline" target="_blank">Alpha Vantage</a>, <a href="https://finnhub.io/docs/api" className="underline" target="_blank">Finnhub</a>.</li>
+<li className="text-green-700 font-semibold">&#9733;&#9733; <a href="https://fastapi.tiangolo.com/" className="underline" target="_blank">FastAPI</a>, <a href="https://docs.pydantic.dev/" className="underline" target="_blank">Pydantic v2</a>.</li>
+</ol></div>
+)},
+
+{id:'grader',title:'Calificador',icon:'Clip',body:()=>(<GraderTool/>)},
+];
+
+/* ---- App ---- */
+const App = () => {
+    const [idx, setIdx] = useState(0);
+    const [open, setOpen] = useState(true);
+    const sec = sections[idx];
+    const Ic = iconMap[sec.icon];
+
+    return (
+        <div className="flex h-screen overflow-hidden relative">
+            <button onClick={()=>setOpen(p=>!p)}
+                className="fixed top-4 left-4 z-50 p-2.5 rounded-full shadow-lg text-white transition-all hover:scale-110"
+                style={{background:'linear-gradient(140deg,#3D008D 0%,#ED1E79 100%)'}}>
+                <i className={"fas "+(open?'fa-times':'fa-bars')+" text-sm"}></i>
+            </button>
+
+            {open && <div className="fixed inset-0 bg-black/20 z-30 lg:hidden" onClick={()=>setOpen(false)}/>}
+
+            <div className="flex-shrink-0 overflow-y-auto z-40 flex flex-col"
+                style={{background:'linear-gradient(180deg,#001A4D 0%,#002868 100%)',width:open?'17rem':'0',minWidth:open?'17rem':'0',opacity:open?1:0,transition:'width .3s,min-width .3s,opacity .25s',overflow:open?'visible auto':'hidden'}}>
+                <div className="p-6 pt-16 border-b border-white/10">
+                    <h1 className="text-white font-bold text-lg tracking-tight">
+                        <span className="text-secondary">Risk</span>Lab<span className="text-gold">USTA</span>
+                    </h1>
+                    <p className="text-xs text-white/50 mt-1">Proyecto Integrador</p>
+                </div>
+                <nav className="p-3 space-y-1">
+                    {sections.map((s,i)=>(
+                        <button key={s.id} onClick={()=>{setIdx(i);if(window.innerWidth<1024)setOpen(false);}}
+                            className={"w-full flex items-center gap-2.5 px-3 py-2 text-xs rounded-lg transition-all text-left "+(idx===i?'text-white shadow-lg':'text-white/60 hover:text-white hover:bg-white/10')}
+                            style={idx===i?{background:'linear-gradient(140deg,#3D008D 0%,#ED1E79 100%)'}:{}}>
+                            <span className="flex-shrink-0">{React.createElement(iconMap[s.icon],{s:16})}</span>
+                            <span className="font-medium leading-tight">{s.title}</span>
+                        </button>
+                    ))}
+                </nav>
+            </div>
+
+            <main className="flex-1 overflow-y-auto bg-bg">
+                <div className="max-w-4xl mx-auto p-8 lg:p-12">
+                    <div className="mb-6 flex items-center justify-between">
+                        <span className="text-xs font-bold tracking-wider text-secondary uppercase">
+                            Secci&#243;n {idx+1} de {sections.length}
+                        </span>
+                        <div className="flex gap-2">
+                            <button disabled={idx===0} onClick={()=>setIdx(c=>c-1)} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30"><I.Left s={20}/></button>
+                            <button disabled={idx===sections.length-1} onClick={()=>setIdx(c=>c+1)} className="p-2 rounded-full hover:bg-gray-100 disabled:opacity-30"><I.Right s={20}/></button>
+                        </div>
+                    </div>
+
+                    <SH title={sec.title} iconKey={sec.icon}/>
+
+                    <div className="prose prose-lg text-gray-600 leading-relaxed fade-in" key={sec.id}>
+                        {sec.body()}
+                    </div>
+
+                    <footer className="mt-20">
+                        <div className="usta-header rounded-xl p-6 text-center">
+                            <p className="text-white font-medium text-sm">Dise&#241;ado por <span className="font-bold">Javier Mauricio Sierra</span></p>
+                            <p className="text-xs mt-1 text-white/60">Teor&#237;a del Riesgo &#8226; Proyecto Integrador con APIs &#8226; USTA</p>
+                        </div>
+                    </footer>
+                </div>
+            </main>
+        </div>
+    );
+};
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
