@@ -6,6 +6,7 @@ import uvicorn
 from models import PortafolioRequest, HealthCheck
 from services.datos import descargar_precios, obtener_info_activo, ACTIVOS_INFO
 from services.indicadores import calcular_todos_indicadores
+from services.riesgo import calcular_rendimientos, calcular_var_cvar
 
 app = FastAPI(
     title="API de Análisis de Riesgo Financiero",
@@ -15,8 +16,8 @@ Sistema de análisis de riesgo para portafolios de inversión.
 **Módulos implementados:**
 - Precios históricos reales (Yahoo Finance) ✅
 - Indicadores técnicos: SMA, EMA, RSI, MACD, Bollinger ✅
-- Rendimientos y estadísticas
-- Valor en Riesgo (VaR) y CVaR
+- Rendimientos logarítmicos y pruebas de normalidad ✅
+- Valor en Riesgo (VaR) y CVaR — 3 métodos ✅
 - CAPM y Beta
 - Frontera eficiente de Markowitz
 - Señales de trading automatizadas
@@ -38,7 +39,7 @@ ACTIVOS = list(ACTIVOS_INFO.keys())
 # ── ENDPOINT 1: HEALTH CHECK ──────────────────────────────────────────────────
 @app.get("/", response_model=HealthCheck, tags=["Sistema"])
 def health_check():
-    """Verifica que el servidor esté corriendo. Responde instantáneo."""
+    """Verifica que el servidor esté corriendo."""
     return HealthCheck(
         status="ok",
         mensaje="API de Riesgo Financiero funcionando correctamente",
@@ -52,7 +53,7 @@ def health_check():
 def listar_activos():
     """Lista los activos del portafolio. Responde instantáneo."""
     activos = [
-        {"ticker": t, **info, "nota": "Usa /precios/{ticker} para precios en tiempo real"}
+        {"ticker": t, **info}
         for t, info in ACTIVOS_INFO.items()
     ]
     return {"total": len(activos), "activos": activos}
@@ -97,13 +98,28 @@ def obtener_precios(
 @app.get("/rendimientos/{ticker}", tags=["Análisis"])
 def obtener_rendimientos(
     ticker: str,
-    fecha_inicio: str = Query(default="2022-01-01"),
+    fecha_inicio: str = Query(default="2022-01-01", description="Formato YYYY-MM-DD"),
+    fecha_fin: Optional[str] = Query(default=None, description="Formato YYYY-MM-DD"),
 ):
-    """Rendimientos logarítmicos. Se implementará en la Fase 5."""
+    """
+    Calcula rendimientos simples y logarítmicos con estadísticas descriptivas.
+
+    Incluye:
+    - Media, volatilidad, asimetría y curtosis
+    - Rendimiento y volatilidad anualizados
+    - Prueba de normalidad Jarque-Bera
+    - Prueba de normalidad Shapiro-Wilk
+    """
     ticker = ticker.upper()
     if ticker not in ACTIVOS:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' no encontrado")
-    return {"ticker": ticker, "nota": "Cálculo real en Fase 5"}
+    try:
+        resultado = calcular_rendimientos(ticker, fecha_inicio, fecha_fin)
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculando rendimientos: {e}")
+    return resultado
 
 
 # ── ENDPOINT 5: INDICADORES TÉCNICOS ─────────────────────────────────────────
@@ -114,17 +130,9 @@ def obtener_indicadores(
     fecha_fin: Optional[str] = Query(default=None, description="Formato YYYY-MM-DD"),
 ):
     """
-    Calcula indicadores técnicos reales usando precios de Yahoo Finance.
-
-    Indicadores incluidos:
-    - **SMA 20, 50, 200** — Medias móviles simples
-    - **EMA 20, 50** — Medias móviles exponenciales
-    - **RSI 14** — Índice de fuerza relativa (0-100)
-    - **MACD** — Convergencia/divergencia de medias móviles
-    - **Bollinger Bands** — Bandas de volatilidad
-    - **Estocástico** — Oscilador de momentum
-
-    También retorna señales de compra/venta del último día.
+    Calcula indicadores técnicos reales.
+    SMA, EMA, RSI, MACD, Bollinger Bands, Estocástico.
+    Incluye señales automáticas de compra/venta.
     """
     ticker = ticker.upper()
     if ticker not in ACTIVOS:
@@ -138,21 +146,34 @@ def obtener_indicadores(
     return resultado
 
 
-# ── ENDPOINT 6: VaR ───────────────────────────────────────────────────────────
+# ── ENDPOINT 6: VaR y CVaR ────────────────────────────────────────────────────
 @app.post("/var", tags=["Riesgo"])
 def calcular_var(portafolio: PortafolioRequest):
-    """VaR y CVaR del portafolio. Se implementará en la Fase 5."""
-    return {
-        "tickers": portafolio.tickers,
-        "pesos": portafolio.pesos,
-        "nivel_confianza": portafolio.nivel_confianza,
-        "nota": "Cálculo real en Fase 5",
-        "resultado_ejemplo": {
-            "var_historico": -0.0234,
-            "cvar": -0.0312,
-            "interpretacion": f"Con {portafolio.nivel_confianza*100:.0f}% de confianza, la pérdida máxima diaria no excedería el 2.34%",
-        },
-    }
+    """
+    Calcula el Valor en Riesgo (VaR) y CVaR del portafolio.
+
+    Métodos implementados:
+    - **Histórico**: percentiles de rendimientos reales
+    - **Paramétrico**: asume distribución normal
+    - **Monte Carlo**: 10,000 simulaciones
+
+    También incluye backtesting de Kupiec para validar el modelo.
+
+    Los pesos deben sumar 1.0 (Pydantic lo valida automáticamente).
+    """
+    try:
+        resultado = calcular_var_cvar(
+            tickers          = portafolio.tickers,
+            pesos            = portafolio.pesos,
+            fecha_inicio     = portafolio.fecha_inicio,
+            fecha_fin        = portafolio.fecha_fin,
+            nivel_confianza  = portafolio.nivel_confianza,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error calculando VaR: {e}")
+    return resultado
 
 
 # ── ENDPOINT 7: CAPM ──────────────────────────────────────────────────────────
@@ -180,7 +201,8 @@ def obtener_alertas():
 @app.get("/macro", tags=["Macro"])
 def obtener_macro():
     """Datos macroeconómicos FRED. Se implementará en la Fase 7."""
-    return {"fuente": "FRED", "nota": "Conexión real en Fase 7", "datos_ejemplo": {"tasa_libre_riesgo": 0.0525}}
+    return {"fuente": "FRED", "nota": "Conexión real en Fase 7",
+            "datos_ejemplo": {"tasa_libre_riesgo": 0.0525}}
 
 
 if __name__ == "__main__":
