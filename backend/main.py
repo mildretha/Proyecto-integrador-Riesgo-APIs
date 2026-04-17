@@ -4,10 +4,11 @@ from typing import List, Optional
 import uvicorn
 
 from models import PortafolioRequest, HealthCheck
-
-# ─────────────────────────────────────────────
-# CONFIGURACIÓN DE LA APLICACIÓN
-# ─────────────────────────────────────────────
+from services.datos import (
+    descargar_precios,
+    obtener_info_activo,
+    ACTIVOS_INFO,
+)
 
 app = FastAPI(
     title="API de Análisis de Riesgo Financiero",
@@ -15,7 +16,7 @@ app = FastAPI(
 Sistema de análisis de riesgo para portafolios de inversión.
 
 **Módulos disponibles:**
-- Precios históricos (Yahoo Finance)
+- Precios históricos reales (Yahoo Finance) ✅
 - Rendimientos y estadísticas
 - Indicadores técnicos: SMA, EMA, RSI, MACD, Bollinger
 - Valor en Riesgo (VaR) y CVaR
@@ -27,7 +28,6 @@ Sistema de análisis de riesgo para portafolios de inversión.
     version="1.0.0",
 )
 
-# CORS: permite que el tablero (Streamlit) se conecte a esta API
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -35,8 +35,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Los 5 activos del portafolio (mínimo requerido por el taller)
-ACTIVOS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
+ACTIVOS = list(ACTIVOS_INFO.keys())
 
 
 # ─────────────────────────────────────────────
@@ -45,15 +44,12 @@ ACTIVOS = ["AAPL", "MSFT", "GOOGL", "AMZN", "TSLA"]
 
 @app.get("/", response_model=HealthCheck, tags=["Sistema"])
 def health_check():
-    """
-    Verifica que el servidor esté corriendo.
-    Es el primer endpoint que debes probar.
-    """
+    """Verifica que el servidor esté corriendo. Responde instantáneo."""
     return HealthCheck(
         status="ok",
         mensaje="API de Riesgo Financiero funcionando correctamente",
         version="1.0.0",
-        activos_disponibles=ACTIVOS
+        activos_disponibles=ACTIVOS,
     )
 
 
@@ -64,48 +60,82 @@ def health_check():
 @app.get("/activos", tags=["Activos"])
 def listar_activos():
     """
-    Lista los activos del portafolio con información básica.
-    En la Fase 3 esto se conectará a Yahoo Finance para precios en tiempo real.
+    Lista los activos del portafolio.
+    Retorna información básica SIN llamar a Yahoo Finance
+    para que sea instantáneo.
     """
-    activos = [
-        {"ticker": "AAPL",  "nombre": "Apple Inc.",      "sector": "Tecnología"},
-        {"ticker": "MSFT",  "nombre": "Microsoft Corp.", "sector": "Tecnología"},
-        {"ticker": "GOOGL", "nombre": "Alphabet Inc.",   "sector": "Tecnología"},
-        {"ticker": "AMZN",  "nombre": "Amazon.com Inc.", "sector": "Consumo"},
-        {"ticker": "TSLA",  "nombre": "Tesla Inc.",      "sector": "Automotriz"},
-    ]
-    return {"total": len(activos), "activos": activos}
+    activos = []
+    for ticker, info in ACTIVOS_INFO.items():
+        activos.append({
+            "ticker": ticker,
+            "nombre": info["nombre"],
+            "sector": info["sector"],
+            "moneda": info["moneda"],
+            "nota":   "Usa /precios/{ticker} para precios en tiempo real",
+        })
+    return {
+        "total":   len(activos),
+        "activos": activos,
+        "fuente":  "Yahoo Finance (disponible en /precios/{ticker})",
+    }
 
 
 # ─────────────────────────────────────────────
-# ENDPOINT 3: PRECIOS — GET /precios/{ticker}
+# ENDPOINT 2b: PRECIO ACTUAL — GET /activos/{ticker}/precio
+# ─────────────────────────────────────────────
+
+@app.get("/activos/{ticker}/precio", tags=["Activos"])
+def precio_actual(ticker: str):
+    """
+    Retorna el precio actual de UN activo desde Yahoo Finance.
+    Este endpoint SÍ llama a Yahoo Finance (puede tardar unos segundos).
+    """
+    ticker = ticker.upper()
+    if ticker not in ACTIVOS:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Ticker '{ticker}' no encontrado. Disponibles: {ACTIVOS}",
+        )
+    info = obtener_info_activo(ticker)
+    return info
+
+
+# ─────────────────────────────────────────────
+# ENDPOINT 3: PRECIOS HISTÓRICOS — GET /precios/{ticker}
 # ─────────────────────────────────────────────
 
 @app.get("/precios/{ticker}", tags=["Precios"])
 def obtener_precios(
     ticker: str,
     fecha_inicio: str = Query(default="2022-01-01", description="Formato YYYY-MM-DD"),
-    fecha_fin: Optional[str] = Query(default=None, description="Formato YYYY-MM-DD"),
+    fecha_fin: Optional[str] = Query(default=None,  description="Formato YYYY-MM-DD"),
 ):
     """
-    Retorna precios históricos de cierre de un activo.
-    Se conectará a Yahoo Finance en la Fase 3.
+    Retorna precios históricos reales desde Yahoo Finance.
+    Puede tardar 5-10 segundos porque descarga datos de internet.
+
+    - **ticker**: AAPL, MSFT, GOOGL, AMZN o TSLA
+    - **fecha_inicio**: desde cuándo traer datos
+    - **fecha_fin**: hasta cuándo (por defecto: hoy)
     """
     ticker = ticker.upper()
     if ticker not in ACTIVOS:
         raise HTTPException(
             status_code=404,
-            detail=f"Ticker '{ticker}' no encontrado. Disponibles: {ACTIVOS}"
+            detail=f"Ticker '{ticker}' no encontrado. Disponibles: {ACTIVOS}",
         )
+    try:
+        df = descargar_precios(ticker, fecha_inicio, fecha_fin)
+    except ValueError as e:
+        raise HTTPException(status_code=502, detail=str(e))
+
     return {
-        "ticker": ticker,
+        "ticker":       ticker,
         "fecha_inicio": fecha_inicio,
-        "fecha_fin": fecha_fin or "hoy",
-        "nota": "Datos reales en Fase 3",
-        "muestra": [
-            {"fecha": "2024-01-02", "cierre": 185.20},
-            {"fecha": "2024-01-03", "cierre": 184.25},
-        ],
+        "fecha_fin":    fecha_fin or "hoy",
+        "total_dias":   len(df),
+        "fuente":       "Yahoo Finance",
+        "datos":        df.to_dict(orient="records"),
     }
 
 
@@ -118,23 +148,18 @@ def obtener_rendimientos(
     ticker: str,
     fecha_inicio: str = Query(default="2022-01-01"),
 ):
-    """
-    Calcula rendimientos simples y logarítmicos.
-    Se implementará en la Fase 5.
-    """
+    """Calcula rendimientos logarítmicos. Se implementará en la Fase 5."""
     ticker = ticker.upper()
     if ticker not in ACTIVOS:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' no encontrado")
     return {
         "ticker": ticker,
-        "nota": "Cálculo real en Fase 5",
+        "nota":   "Cálculo real en Fase 5",
         "estadisticas_ejemplo": {
             "media_diaria":  0.0012,
             "desv_estandar": 0.0189,
             "minimo":       -0.0892,
             "maximo":        0.0756,
-            "asimetria":    -0.23,
-            "curtosis":      3.8,
         },
     }
 
@@ -145,17 +170,14 @@ def obtener_rendimientos(
 
 @app.get("/indicadores/{ticker}", tags=["Análisis"])
 def obtener_indicadores(ticker: str):
-    """
-    Retorna indicadores técnicos: SMA, EMA, RSI, MACD, Bollinger Bands.
-    Se implementará en la Fase 4.
-    """
+    """Indicadores técnicos SMA, EMA, RSI, MACD. Se implementará en la Fase 4."""
     ticker = ticker.upper()
     if ticker not in ACTIVOS:
         raise HTTPException(status_code=404, detail=f"Ticker '{ticker}' no encontrado")
     return {
-        "ticker": ticker,
+        "ticker":                  ticker,
         "indicadores_disponibles": ["SMA_20", "SMA_50", "EMA_20", "RSI_14", "MACD", "Bollinger"],
-        "nota": "Valores reales en Fase 4",
+        "nota":                    "Valores reales en Fase 4",
     }
 
 
@@ -165,22 +187,16 @@ def obtener_indicadores(ticker: str):
 
 @app.post("/var", tags=["Riesgo"])
 def calcular_var(portafolio: PortafolioRequest):
-    """
-    Calcula el Valor en Riesgo (VaR) y CVaR del portafolio.
-
-    Pydantic valida automáticamente que los pesos sumen 1.0.
-    Se implementará en la Fase 5.
-    """
+    """VaR y CVaR del portafolio. Se implementará en la Fase 5."""
     return {
-        "tickers":          portafolio.tickers,
-        "pesos":            portafolio.pesos,
-        "nivel_confianza":  portafolio.nivel_confianza,
-        "nota":             "Cálculo real en Fase 5",
+        "tickers":         portafolio.tickers,
+        "pesos":           portafolio.pesos,
+        "nivel_confianza": portafolio.nivel_confianza,
+        "nota":            "Cálculo real en Fase 5",
         "resultado_ejemplo": {
             "var_historico":   -0.0234,
-            "var_parametrico": -0.0198,
             "cvar":            -0.0312,
-            "interpretacion":  (
+            "interpretacion": (
                 f"Con {portafolio.nivel_confianza*100:.0f}% de confianza, "
                 "la pérdida máxima diaria no excedería el 2.34%"
             ),
@@ -193,14 +209,8 @@ def calcular_var(portafolio: PortafolioRequest):
 # ─────────────────────────────────────────────
 
 @app.get("/capm", tags=["Riesgo"])
-def calcular_capm(
-    tickers: List[str] = Query(default=ACTIVOS)
-):
-    """
-    Calcula Beta y rendimiento esperado por CAPM para cada activo.
-    Fórmula: E(Ri) = Rf + Beta × (E(Rm) - Rf)
-    Se implementará en la Fase 6.
-    """
+def calcular_capm(tickers: List[str] = Query(default=ACTIVOS)):
+    """Beta y CAPM por activo. Se implementará en la Fase 6."""
     return {
         "benchmark": "S&P 500 (^GSPC)",
         "nota":      "Cálculo real en Fase 6",
@@ -218,22 +228,10 @@ def calcular_capm(
 
 @app.post("/frontera-eficiente", tags=["Portafolio"])
 def calcular_frontera(portafolio: PortafolioRequest):
-    """
-    Construye la frontera eficiente de Markowitz.
-    Determina el portafolio de mínima varianza y el de máximo Sharpe Ratio.
-    Se implementará en la Fase 6.
-    """
+    """Frontera eficiente de Markowitz. Se implementará en la Fase 6."""
     return {
         "tickers": portafolio.tickers,
         "nota":    "Frontera eficiente en Fase 6",
-        "resultado_ejemplo": {
-            "portafolio_min_varianza": {
-                "pesos":                [0.30, 0.25, 0.20, 0.15, 0.10],
-                "rendimiento_esperado": "11.8%",
-                "volatilidad":          "16.2%",
-                "sharpe_ratio":         0.73,
-            },
-        },
     }
 
 
@@ -243,11 +241,7 @@ def calcular_frontera(portafolio: PortafolioRequest):
 
 @app.get("/alertas", tags=["Señales"])
 def obtener_alertas():
-    """
-    Señales automáticas de compra/venta basadas en indicadores técnicos.
-    RSI < 30 → COMPRA. RSI > 70 → VENTA.
-    Se implementará en la Fase 7.
-    """
+    """Señales de trading automatizadas. Se implementará en la Fase 7."""
     return {
         "total_alertas": 0,
         "alertas":       [],
@@ -261,11 +255,7 @@ def obtener_alertas():
 
 @app.get("/macro", tags=["Macro"])
 def obtener_macro():
-    """
-    Indicadores macroeconómicos desde FRED API:
-    tasa libre de riesgo, inflación, desempleo.
-    Se conectará a FRED en la Fase 7.
-    """
+    """Datos macroeconómicos desde FRED. Se implementará en la Fase 7."""
     return {
         "fuente": "FRED - Federal Reserve Bank of St. Louis",
         "nota":   "Conexión real a FRED en Fase 7",
