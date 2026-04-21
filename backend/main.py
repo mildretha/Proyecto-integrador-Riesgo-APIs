@@ -352,11 +352,13 @@ def recomendar(
     elif sector:
         tickers = get_por_sector(sector)
     else:
-        # Universo diversificado por defecto
+        # Universo diversificado por defecto — 12 activos representativos
+        # 3 por región para garantizar diversificación global sin sacrificar velocidad
         tickers = [
-            "AAPL","MSFT","JPM","XOM","JNJ","AMZN",
-            "EC","CIB","TM","INFY","NOVN.SW","HSBA.L",
-            "SAP.DE","BAC","CVX","PFE","TSLA","SONY",
+            "AAPL","MSFT","JPM",          # Norteamérica: Tec, Tec, Fin
+            "SAP.DE","NOVN.SW","HSBA.L",  # Europa: Tec, Salud, Fin
+            "EC","CIB","PETR4.SA",         # LatAm: Energía, Fin, Energía
+            "TM","INFY","SONY",            # Asia: Auto, Tec, Tec
         ]
 
     if not tickers:

@@ -251,142 +251,184 @@ SERIES_FRED = {
 }
 
 
+
 def obtener_datos_fred(
     api_key: Optional[str] = None,
     series: List[str] = None,
 ) -> dict:
     """
-    Obtiene indicadores macroeconómicos desde la API de FRED.
-
-    Si no hay API key, retorna datos de ejemplo con valores recientes.
-
-    Para obtener tu API key gratis:
-    1. Ve a https://fred.stlouisfed.org/docs/api/api_key.html
-    2. Crea una cuenta gratuita
-    3. Solicita una API key
-    4. Agrégala al archivo .env como FRED_API_KEY=tu_clave
+    Obtiene indicadores macroeconómicos desde FRED.
+    CPI se calcula como variación anual (no índice acumulado).
     """
     if series is None:
         series = ["DGS3MO", "DGS10", "CPIAUCSL", "UNRATE", "FEDFUNDS", "VIXCLS"]
 
-    # Si no hay API key, retornar datos de ejemplo
     if not api_key:
         return _datos_fred_ejemplo()
 
     resultados = {}
-    errores    = []
+    errores = []
 
     for serie_id in series:
         try:
             url = "https://api.stlouisfed.org/fred/series/observations"
-            params = {
-                "series_id":       serie_id,
-                "api_key":         api_key,
-                "file_type":       "json",
-                "sort_order":      "desc",
-                "limit":           5,           # últimos 5 registros
-                "observation_start": (datetime.today() - timedelta(days=365)).strftime("%Y-%m-%d"),
-            }
+            # CPI sin observation_start para garantizar 13+ observaciones mensuales
+            if serie_id == "CPIAUCSL":
+                params = {
+                    "series_id":  serie_id,
+                    "api_key":    api_key,
+                    "file_type":  "json",
+                    "sort_order": "desc",
+                    "limit":      16,
+                }
+            else:
+                params = {
+                    "series_id":        serie_id,
+                    "api_key":          api_key,
+                    "file_type":        "json",
+                    "sort_order":       "desc",
+                    "limit":            5,
+                    "observation_start": (datetime.today() - timedelta(days=365)).strftime("%Y-%m-%d"),
+                }
             resp = requests.get(url, params=params, timeout=10)
             resp.raise_for_status()
             data = resp.json()
+            observaciones = [o for o in data.get("observations", []) if o["value"] != "."]
+            if not observaciones:
+                continue
 
-            observaciones = data.get("observations", [])
-            if observaciones:
-                # Tomar el valor más reciente que no sea "."
-                valor_reciente = None
-                fecha_reciente = None
-                for obs in observaciones:
-                    if obs["value"] != ".":
-                        valor_reciente = float(obs["value"])
-                        fecha_reciente = obs["date"]
-                        break
+            if serie_id == "CPIAUCSL":
+                # Variación anual: (mes actual / mes hace 12 meses - 1) * 100
+                if len(observaciones) >= 13:
+                    valor_reciente = round((float(observaciones[0]["value"]) / float(observaciones[12]["value"]) - 1) * 100, 2)
+                else:
+                    valor_reciente = None
+            else:
+                valor_reciente = float(observaciones[0]["value"])
 
-                resultados[serie_id] = {
-                    "nombre":      SERIES_FRED.get(serie_id, serie_id),
-                    "valor":       valor_reciente,
-                    "fecha":       fecha_reciente,
-                    "unidad":      "%" if serie_id not in ["GDP", "SP500", "VIXCLS"] else "índice",
-                }
+            fecha_reciente = observaciones[0]["date"]
+            interpretacion = _interpretar_indicador(serie_id, valor_reciente)
+
+            resultados[serie_id] = {
+                "nombre":         SERIES_FRED.get(serie_id, serie_id),
+                "valor":          valor_reciente,
+                "fecha":          fecha_reciente,
+                "unidad":         "pts" if serie_id == "VIXCLS" else "%",
+                "interpretacion": interpretacion,
+                "aplica_a":       "Global" if serie_id == "VIXCLS" else "EE.UU.",
+            }
         except Exception as e:
             errores.append(f"{serie_id}: {str(e)}")
 
     if errores:
         resultados["_errores"] = errores
 
+    contexto = _generar_contexto_macro(resultados)
+
     return {
-        "fuente":      "FRED - Federal Reserve Bank of St. Louis",
+        "fuente":         "FRED - Federal Reserve Bank of St. Louis",
         "fecha_consulta": datetime.today().strftime("%Y-%m-%d %H:%M"),
-        "datos":       resultados,
+        "nota_alcance":   (
+            "Los indicadores DGS3MO, DGS10, CPI, UNRATE y FEDFUNDS corresponden a EE.UU. "
+            "El VIX es global. Todos afectan el portafolio porque el T-Bills 3M se usa "
+            "como tasa libre de riesgo (Rf) en el CAPM."
+        ),
+        "datos":          resultados,
+        "contexto_macro": contexto,
+    }
+
+
+def _interpretar_indicador(serie_id: str, valor) -> str:
+    """Interpretación en texto para cada indicador según su valor actual."""
+    if valor is None:
+        return "Sin datos disponibles."
+    if serie_id == "DGS3MO":
+        if valor > 5:   return f"Tasa alta ({valor:.2f}%). Encarece el costo de capital. Usado como Rf en CAPM."
+        elif valor > 3: return f"Tasa moderada ({valor:.2f}%). Referencia de inversión libre de riesgo para el CAPM."
+        else:           return f"Tasa baja ({valor:.2f}%). Favorable para acciones — el costo de oportunidad es bajo."
+    if serie_id == "DGS10":
+        if valor > 4.5: return f"Rendimiento alto ({valor:.2f}%). Los bonos compiten con las acciones como activo."
+        elif valor > 3: return f"Rendimiento moderado ({valor:.2f}%). Entorno neutral para acciones de crecimiento."
+        else:           return f"Rendimiento bajo ({valor:.2f}%). Favorable para valoraciones de acciones de crecimiento."
+    if serie_id == "CPIAUCSL":
+        if valor > 5:   return f"Inflación alta ({valor:.2f}% anual). La Fed probablemente mantendrá tasas elevadas."
+        elif valor > 2.5: return f"Inflación moderada ({valor:.2f}% anual). Por encima del objetivo del 2% de la Fed."
+        else:           return f"Inflación controlada ({valor:.2f}% anual). Cerca del objetivo del 2% de la Fed."
+    if serie_id == "UNRATE":
+        if valor > 6:   return f"Desempleo alto ({valor:.2f}%). Señal de debilidad económica."
+        elif valor > 4.5: return f"Desempleo moderado ({valor:.2f}%). Mercado laboral en recuperación."
+        else:           return f"Desempleo bajo ({valor:.2f}%). Economía sólida — favorable para resultados corporativos."
+    if serie_id == "FEDFUNDS":
+        if valor > 5:   return f"Tasa Fed alta ({valor:.2f}%). Política restrictiva — presiona valuaciones de acciones."
+        elif valor > 3: return f"Tasa Fed moderada ({valor:.2f}%). Política monetaria neutral."
+        else:           return f"Tasa Fed baja ({valor:.2f}%). Política expansiva — impulsa mercados de acciones."
+    if serie_id == "VIXCLS":
+        if valor > 30:  return f"VIX alto ({valor:.1f}). Pánico en el mercado — el VaR puede subestimar el riesgo real."
+        elif valor > 20: return f"VIX moderado ({valor:.1f}). Incertidumbre en el mercado — precaución recomendada."
+        else:           return f"VIX bajo ({valor:.1f}). Mercado tranquilo — modo risk-on, favorable para acciones."
+    return "—"
+
+
+def _generar_contexto_macro(datos: dict) -> dict:
+    """Genera contexto dinámico con los valores reales de FRED."""
+    fed    = datos.get("FEDFUNDS", {}).get("valor")
+    cpi    = datos.get("CPIAUCSL", {}).get("valor")
+    vix    = datos.get("VIXCLS",   {}).get("valor")
+    unrate = datos.get("UNRATE",   {}).get("valor")
+    rf     = datos.get("DGS3MO",   {}).get("valor")
+
+    partes = []
+    if fed and cpi:
+        partes.append(
+            f"La Fed mantiene su tasa en {fed:.2f}% con inflación en {cpi:.2f}% anual. "
+            f"La tasa real (Fed - CPI) es {fed - cpi:.2f}%."
+        )
+    if vix:
+        estado = "tranquilo" if vix < 20 else "con incertidumbre" if vix < 30 else "en pánico"
+        partes.append(f"El mercado está {estado} — VIX en {vix:.1f} puntos.")
+    if unrate:
+        partes.append(f"El desempleo en EE.UU. se ubica en {unrate:.1f}%.")
+
+    descripcion = " ".join(partes) if partes else "Datos macroeconómicos actualizados."
+
+    impacto = []
+    if rf:
+        impacto.append(f"Rf en CAPM = {rf:.2f}% (T-Bills 3M) — afecta el rendimiento esperado de todos los activos")
+    if vix and vix > 25:
+        impacto.append("VIX elevado → el VaR histórico puede subestimar el riesgo real del portafolio")
+    elif vix:
+        impacto.append("VIX bajo → el VaR histórico es representativo del riesgo actual")
+    if fed and fed > 4:
+        impacto.append("Tasas altas → acciones de tecnología (alto P/E) son más vulnerables a correcciones")
+    if cpi and cpi > 3:
+        impacto.append(f"Inflación ({cpi:.1f}%) por encima del 2% → la Fed podría mantener tasas restrictivas")
+
+    return {
+        "descripcion":        descripcion,
+        "impacto_portafolio": impacto if impacto else ["Entorno macroeconómico estable."],
     }
 
 
 def _datos_fred_ejemplo() -> dict:
-    """
-    Retorna datos macroeconómicos de ejemplo cuando no hay API key.
-    Valores aproximados de inicios de 2025.
-    """
+    """Datos de ejemplo cuando no hay API key."""
+    datos = {
+        "DGS3MO":   {"nombre":"Tasa libre de riesgo (T-Bills 3M)", "valor":4.35, "fecha":"2025-04-01", "unidad":"%", "aplica_a":"EE.UU.", "interpretacion":"Tasa moderada (4.35%). Referencia de inversión libre de riesgo para el CAPM."},
+        "DGS10":    {"nombre":"Tasa del Tesoro a 10 años",          "valor":4.26, "fecha":"2025-04-01", "unidad":"%", "aplica_a":"EE.UU.", "interpretacion":"Rendimiento alto (4.26%). Los bonos compiten con las acciones como activo."},
+        "CPIAUCSL": {"nombre":"Inflación anual (CPI)",              "valor":2.80, "fecha":"2025-03-01", "unidad":"%", "aplica_a":"EE.UU.", "interpretacion":"Inflación moderada (2.80% anual). Por encima del objetivo del 2% de la Fed."},
+        "UNRATE":   {"nombre":"Tasa de desempleo",                  "valor":4.20, "fecha":"2025-03-01", "unidad":"%", "aplica_a":"EE.UU.", "interpretacion":"Desempleo moderado (4.20%). Mercado laboral en recuperación."},
+        "FEDFUNDS": {"nombre":"Tasa de fondos federales (Fed)",     "valor":4.33, "fecha":"2025-03-01", "unidad":"%", "aplica_a":"EE.UU.", "interpretacion":"Tasa Fed moderada (4.33%). Política monetaria neutral."},
+        "VIXCLS":   {"nombre":"VIX — Índice de volatilidad",        "valor":18.87,"fecha":"2025-04-20", "unidad":"pts","aplica_a":"Global","interpretacion":"VIX bajo (18.9). Mercado tranquilo — modo risk-on, favorable para acciones."},
+    }
+    contexto = _generar_contexto_macro(datos)
     return {
         "fuente":         "FRED - Federal Reserve Bank of St. Louis",
         "fecha_consulta": datetime.today().strftime("%Y-%m-%d %H:%M"),
-        "nota":           "Datos de ejemplo. Configura FRED_API_KEY en .env para datos reales.",
-        "como_obtener_key": "https://fred.stlouisfed.org/docs/api/api_key.html",
-        "datos": {
-            "DGS3MO": {
-                "nombre": "Tasa libre de riesgo (T-Bills 3 meses)",
-                "valor":  5.25,
-                "fecha":  "2025-01-01",
-                "unidad": "%",
-                "uso_en_capm": "Se usa como Rf en la fórmula CAPM: E(R) = Rf + Beta*(Rm-Rf)",
-            },
-            "DGS10": {
-                "nombre": "Tasa del Tesoro a 10 años",
-                "valor":  4.58,
-                "fecha":  "2025-01-01",
-                "unidad": "%",
-            },
-            "CPIAUCSL": {
-                "nombre": "Inflación anual (CPI)",
-                "valor":  3.2,
-                "fecha":  "2025-01-01",
-                "unidad": "%",
-            },
-            "UNRATE": {
-                "nombre": "Tasa de desempleo",
-                "valor":  3.9,
-                "fecha":  "2025-01-01",
-                "unidad": "%",
-            },
-            "FEDFUNDS": {
-                "nombre": "Tasa de fondos federales (Fed)",
-                "valor":  5.33,
-                "fecha":  "2025-01-01",
-                "unidad": "%",
-            },
-            "VIXCLS": {
-                "nombre": "VIX — Índice de volatilidad del mercado",
-                "valor":  15.4,
-                "fecha":  "2025-01-01",
-                "unidad": "índice",
-                "interpretacion": (
-                    "VIX < 20: baja volatilidad (mercado tranquilo). "
-                    "VIX 20-30: volatilidad moderada. "
-                    "VIX > 30: alta volatilidad (pánico en el mercado)."
-                ),
-            },
-        },
-        "contexto_macro": {
-            "descripcion": (
-                "Las tasas altas de la Fed (5.33%) aumentan el costo de capital "
-                "y presionan las valoraciones de las acciones de crecimiento. "
-                "Con inflación en 3.2%, el rendimiento real de los T-Bills es ~2%, "
-                "lo que hace que los bonos compitan con las acciones."
-            ),
-            "impacto_portafolio": [
-                "Tasa libre de riesgo alta → prima de riesgo de acciones se reduce",
-                "Inflación moderada → la Fed podría bajar tasas gradualmente",
-                "VIX bajo → mercado en modo 'risk-on', favorable para acciones",
-                "Desempleo bajo → economía sólida, buenos fundamentos corporativos",
-            ],
-        },
+        "nota":           "Datos de referencia. Configura FRED_API_KEY en .env para datos en tiempo real.",
+        "nota_alcance":   (
+            "Los indicadores DGS3MO, DGS10, CPI, UNRATE y FEDFUNDS corresponden a EE.UU. "
+            "El VIX es global. Todos afectan el portafolio porque el T-Bills 3M se usa "
+            "como tasa libre de riesgo (Rf) en el CAPM."
+        ),
+        "datos":          datos,
+        "contexto_macro": contexto,
     }
